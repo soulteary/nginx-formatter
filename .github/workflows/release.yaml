@@ -10,6 +10,11 @@ on:
 env:
   GO_VERSION: "1.20"
 
+permissions:
+  contents: write
+  id-token: write
+  packages: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -55,6 +60,6 @@ jobs:
         if: success() && startsWith(github.ref, 'refs/tags/')
         with:
           version: latest
-          args: release --rm-dist
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
