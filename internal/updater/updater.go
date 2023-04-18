@@ -33,7 +33,12 @@ func UpdateConfInDir(rootDir string, fn func(s string) (string, error)) error {
 				return err
 			}
 
-			fmt.Printf("Formatter Nginx Conf %s Successed\n", path)
+			rel, err := filepath.Rel(rootDir, path)
+			if err != nil {
+				fmt.Printf("Formatter Nginx Conf %s Successed\n", path)
+			} else {
+				fmt.Printf("Formatter Nginx Conf %s Successed\n", rel)
+			}
 		}
 		return nil
 	})
