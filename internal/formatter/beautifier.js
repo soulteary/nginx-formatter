@@ -173,6 +173,16 @@ function add_empty_line_after_nginx_directives(lines) {
   return output.reverse();
 }
 
+function fixDollarVar(lines) {
+  const placeHolder = `[dollar]`;
+  return lines.map((line) => {
+    while (line.indexOf(placeHolder) !== -1) {
+      line = line.replace(placeHolder, "$");
+    }
+    return line;
+  });
+}
+
 var options = { INDENTATION: "\t" };
 
 function perform_indentation(lines) {
@@ -205,5 +215,6 @@ function FormatNginxConf(text, indentation = "  ") {
   lines = join_opening_bracket(lines);
   lines = perform_indentation(lines);
   lines = add_empty_line_after_nginx_directives(lines);
+  lines = fixDollarVar(lines);
   return fold_empty_brackets(lines);
 }

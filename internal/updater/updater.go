@@ -4,8 +4,22 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
+
+func EncodeEscapeChars(s string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(s, `\t`, `{{\\}}t`), `\s`, `{{\\}}s`), `\r`, `{{\\}}r`), `\n`, `{{\\}}n`)
+}
+
+func DecodeEscapeChars(s string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(s, `{{\}}t`, `\t`), `{{\}}s`, `\s`), `{{\}}r`, `\r`), `{{\}}n`, `\n`)
+}
+
+func FixVars(s string) string {
+	s = regexp.MustCompile(`(\$)(\{\S+?\})`).ReplaceAllString(s, "[dollar]$2")
+	return regexp.MustCompile(`(return\s+\d+\s+?)([\s\S]+?);`).ReplaceAllString(s, "$1\"$2\";")
+}
 
 func UpdateConfInDir(rootDir string, fn func(s string) (string, error)) error {
 	if rootDir == "" {
@@ -23,12 +37,12 @@ func UpdateConfInDir(rootDir string, fn func(s string) (string, error)) error {
 				return err
 			}
 
-			modifiedData, err := fn(string(data))
+			modifiedData, err := fn(FixVars(EncodeEscapeChars(string(data))))
 			if err != nil {
 				return err
 			}
 
-			err = os.WriteFile(path, []byte(modifiedData), info.Mode())
+			err = os.WriteFile(path, []byte(DecodeEscapeChars(modifiedData)), info.Mode())
 			if err != nil {
 				return err
 			}
