@@ -6,6 +6,8 @@
   <a href="README.md" target="_blank">ENGLISH</a> | <a href="README_CN.md">中文文档</a>
 </p>
 
+<img src=".github/logo.png" width="120" >
+
 一款小巧（几MB）、简洁的 Nginx 格式化工具。
 
 ## 程序下载
