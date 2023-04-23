@@ -9,15 +9,21 @@ import (
 	"github.com/soulteary/nginx-formatter/internal/define"
 )
 
-func InitArgv() (argvSrc string, argvDest string, argvIndent int, argvIndentChar string) {
+func InitArgv() (argvSrc string, argvDest string, argvIndent int, argvIndentChar string, argvWeb bool, argvPort int) {
 	var inputDir string
-	var outputDir string
-	var indent int
-	var indentChar string
 	flag.StringVar(&inputDir, define.APP_ARGV_INPUT, define.DEFAULT_WORKDIR, "Input directory")
+	var outputDir string
 	flag.StringVar(&outputDir, define.APP_ARGV_OUTPUT, define.DEFAULT_WORKDIR, "Output directory")
+	var indent int
 	flag.IntVar(&indent, define.APP_ARGV_INDENT, define.DEFAULT_INDENT_SIZE, fmt.Sprintf("Indent size, defualt: %d", define.DEFAULT_INDENT_SIZE))
+	var indentChar string
 	flag.StringVar(&indentChar, define.APP_ARGV_CHAR, define.DEFAULT_INDENT_CHAR, fmt.Sprintf("Indent char, defualt: `%s`", define.DEFAULT_INDENT_CHAR))
+
+	var web bool
+	flag.BoolVar(&web, define.APP_ARGV_WEB, define.DEFAULT_WEB, fmt.Sprintf("Enable WebUI, defualt: `%v`", define.DEFAULT_WEB))
+	var port int
+	flag.IntVar(&port, define.APP_ARGV_PORT, define.DEFAULT_PORT, fmt.Sprintf("WebUI Port, defualt: `%d`", define.DEFAULT_PORT))
+
 	flag.Parse()
 
 	if inputDir == "" {
@@ -68,6 +74,22 @@ func InitArgv() (argvSrc string, argvDest string, argvIndent int, argvIndentChar
 		argvIndentChar = indentChar
 		fmt.Printf("Specify the indent char as: `%s`\n", indentChar)
 	}
+
+	if web {
+		argvWeb = true
+		fmt.Println("Enable WebUI")
+		if port <= 1024 || port >= 65535 {
+			fmt.Println("Please set the port above 1024 and the port within 65535")
+			fmt.Printf("use the default value: `%d`\n", define.DEFAULT_PORT)
+			argvPort = define.DEFAULT_PORT
+		} else {
+			argvPort = port
+			fmt.Printf("Specify the indent char as: `%d`\n", port)
+		}
+	} else {
+		argvWeb = false
+	}
+
 	fmt.Println()
-	return argvSrc, argvDest, argvIndent, argvIndentChar
+	return argvSrc, argvDest, argvIndent, argvIndentChar, argvWeb, argvPort
 }

@@ -13,9 +13,13 @@ import (
 func main() {
 	fmt.Printf("Nginx Formatter v%s\n\n", version.Version)
 
-	src, dest, indent, char := cmd.InitArgv()
-	err := updater.UpdateConfInDir(src, dest, indent, char, formatter.Formatter)
-	if err != nil {
-		log.Fatal(err)
+	src, dest, indent, char, web, port := cmd.InitArgv()
+	if web {
+		fmt.Println(port)
+	} else {
+		err := updater.UpdateConfInDir(src, dest, indent, char, formatter.Formatter)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
