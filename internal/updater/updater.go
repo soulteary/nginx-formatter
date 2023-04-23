@@ -77,7 +77,9 @@ func ScanFiles(rootDir string) ([]string, error) {
 		if info.IsDir() {
 			return nil
 		}
-		if strings.HasSuffix(path, ".conf") {
+
+		file := filepath.Clean(path)
+		if strings.HasPrefix(file, rootDir) && strings.HasSuffix(file, ".conf") {
 			_, err := os.ReadFile(path)
 			if err != nil {
 				return err
@@ -97,12 +99,18 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 	if err != nil {
 		return err
 	}
-	for _, file := range files {
+	for _, src := range files {
+		file := filepath.Clean(src)
+		if !strings.HasPrefix(file, rootDir) {
+			continue
+		}
+
 		buf, err := os.ReadFile(file)
 		if err != nil {
 			fmt.Printf("Formatter Nginx Conf %s failed, can not open the file\n", err)
 			return err
 		}
+
 		modifiedData, err := fn(FixVars(FixReturn(EncodeEscapeChars(string(buf)))), indent, indentChar)
 		if err != nil {
 			fmt.Printf("Formatter Nginx Conf %s failed, can not format the file\n", err)
