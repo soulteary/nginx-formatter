@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Launch(port int, indent int, char string, fn func(s string, indent int, char string) (string, error)) {
+func Launch(port int, indent int, char string, fn func(s string, indent int, char string) (string, error)) error {
 	gin.SetMode(gin.ReleaseMode)
 
 	router := gin.Default()
@@ -29,5 +29,5 @@ func Launch(port int, indent int, char string, fn func(s string, indent int, cha
 		c.Data(http.StatusOK, "text/javascript", CACHE_SCRIPT)
 	})
 
-	router.Run(fmt.Sprintf(":%d", port))
+	return router.Run(fmt.Sprintf(":%d", port))
 }

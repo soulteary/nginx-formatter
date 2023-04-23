@@ -16,7 +16,10 @@ func main() {
 
 	src, dest, indent, char, web, port := cmd.InitArgv()
 	if web {
-		server.Launch(port, indent, char, formatter.Formatter)
+		err := server.Launch(port, indent, char, formatter.Formatter)
+		if err != nil {
+			log.Fatal(err)
+		}
 	} else {
 		err := updater.UpdateConfInDir(src, dest, indent, char, formatter.Formatter)
 		if err != nil {
