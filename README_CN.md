@@ -1,4 +1,4 @@
-# Nginx Formatter
+# Nginx Formatter / Nginx 格式化工具
 
 [![CodeQL](https://github.com/soulteary/nginx-formatter/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/soulteary/nginx-formatter/actions/workflows/github-code-scanning/codeql) [![Codecov](https://github.com/soulteary/nginx-formatter/actions/workflows/codecov.yml/badge.svg)](https://github.com/soulteary/nginx-formatter/actions/workflows/codecov.yml) [![Security Scan](https://github.com/soulteary/nginx-formatter/actions/workflows/scan.yml/badge.svg)](https://github.com/soulteary/nginx-formatter/actions/workflows/scan.yml) [![Release](https://github.com/soulteary/nginx-formatter/actions/workflows/release.yaml/badge.svg)](https://github.com/soulteary/nginx-formatter/actions/workflows/release.yaml) ![Go Report Card](https://goreportcard.com/badge/github.com/soulteary/nginx-formatter) [![Docker Image](https://img.shields.io/docker/pulls/soulteary/nginx-formatter.svg)](https://hub.docker.com/r/soulteary/nginx-formatter)
 
@@ -6,53 +6,48 @@
   <a href="README.md" target="_blank">ENGLISH</a> | <a href="README_CN.md">中文文档</a>
 </p>
 
-Nginx configuration formatter under 10MB size.
+一款小巧（几MB）、简洁的 Nginx 格式化工具。
 
-## Download
+## 程序下载
 
-Download the binaries for your system and architecture from the [releases page](https://github.com/soulteary/nginx-formatter/releases).
+从[发布页面](https://github.com/soulteary/nginx-formatter/releases)下载适用于您系统和架构的二进制文件和压缩包。
 
 <img src=".github/dockerhub.png" width="80%" >
 
-If you use docker, you can use the following command ([DockerHub](https://hub.docker.com/r/soulteary/nginx-formatter)):
+如果使用 Docker，可以使用以下命令（[DockerHub](https://hub.docker.com/r/soulteary/nginx-formatter)）：
 
 ```bash
 docker pull soulteary/nginx-formatter:latest
 docker pull soulteary/nginx-formatter:v0.5.0
 ```
 
-## Usage
+## 程序使用
 
-Use default parameters to format all configuration files in the current directory:
+使用默认参数格式化当前目录中的所有的 Nginx 配置文件：
 
 ```bash
 ./nginx-formatter
 ```
 
-Use different indentation symbols (You can use spaces, tabs, ` `, `\s`, `\t`) and indentation amounts:
+使用不同的缩进符号（可以使用空格、制表符、`\s`、`\t`、` `）和缩进量：
 
 ```bash
 ./nginx-formatter -indent=4 -char=" "
 ```
 
-Format the configuration file in the specified directory:
+格式化指定目录中的配置文件：
 
 ```bash
 ./nginx-formatter -input=./your-dir-path
 ```
 
-Format a file somewhere and save it in a new directory:
+在新目录中保存格式化后的配置文件：
 
 ```bash
 ./nginx-formatter -input=./your-dir-path -output=./your-output-dir
 ```
 
-
-
-
-## Full parameters supported
-
-List of parameters supported:
+## 支持的完整参数列表
 
 ```bash
 Nginx Formatter
@@ -68,19 +63,18 @@ Usage of ./nginx-formatter:
     	Output directory
 ```
 
-## Credits
+## 鸣谢
 
-Formatter Components
+格式化组件
 
-- Slomkowski Created a beautifier for nginx config files with Python under [Apache-2.0 license], 24/06/2016
+- 2016/06/24 Slomkowski 使用 Python 创建了一个 nginx 配置文件美化器，在 [Apache-2.0 许可] 下发布
   - https://github.com/1connect/nginx-config-formatter (https://github.com/slomkowski/nginx-config-formatter)
-- Yosef Ported the JavaScript beautifier under [Apache-2.0 license], 24/08/2016
+- 2016/08/24 Yosef 在 [Apache-2.0 许可] 下移植了 JavaScript beautifier
   - https://github.com/vasilevich/nginxbeautifier
-- soulteary Modify the JavaScript version for golang execution, under [Apache-2.0 license], 18/04/2023:
-  - simplify the program, fix bugs, improve running speed, and allow running in golang
+- 2023/04/18，soulteary 根据 [Apache-2.0 许可] 简化程序，修复错误，提高运行速度，并允许在 Golang 中运行。
   - https://github.com/soulteary/nginx-formatter
 
-Runtime dependent components
+JavaScript 运行时组件：
 
-- ECMAScript 5.1(+) implementation in Go
+- Go 中的 ECMAScript 5.1(+) 实现
   - https://github.com/dop251/goja
