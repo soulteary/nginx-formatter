@@ -4,7 +4,51 @@
 
 Nginx configuration formatter under 10MB size.
 
+## Download
+
+Download the binaries for your system and architecture from the [releases page](https://github.com/soulteary/nginx-formatter/releases).
+
+<img src=".github/dockerhub.png" width="80%" >
+
+If you use docker, you can use the following command ([DockerHub](https://hub.docker.com/r/soulteary/nginx-formatter)):
+
+```bash
+docker pull soulteary/nginx-formatter:latest
+docker pull soulteary/nginx-formatter:v0.5.0
+```
+
 ## Usage
+
+Use default parameters to format all configuration files in the current directory:
+
+```bash
+./nginx-formatter
+```
+
+Use different indentation symbols (You can use spaces, tabs, ` `, `\s`, `\t`) and indentation amounts:
+
+```bash
+./nginx-formatter -indent=4 -char=" "
+```
+
+Format the configuration file in the specified directory:
+
+```bash
+./nginx-formatter -input=./your-dir-path
+```
+
+Format a file somewhere and save it in a new directory:
+
+```bash
+./nginx-formatter -input=./your-dir-path -output=./your-output-dir
+```
+
+
+
+
+## Full parameters supported
+
+List of parameters supported:
 
 ```bash
 Nginx Formatter
@@ -20,9 +64,19 @@ Usage of ./nginx-formatter:
     	Output directory
 ```
 
+## Credits
 
-## Docker
+Formatter Components
 
-<img src=".github/dockerhub.png" width="80%" >
+- soulteary Modify the JavaScript version for golang execution, under [Apache-2.0 license], 18/04/2023:
+  - simplify the program, fix bugs, improve running speed, and allow running in golang
+  - https://github.com/soulteary/nginx-formatter
+- Yosef Ported the JavaScript beautifier under [Apache-2.0 license], 24/08/2016
+  - https://github.com/vasilevich/nginxbeautifier
+- Slomkowski Created a beautifier for nginx config files with Python under [Apache-2.0 license], 24/06/2016
+  - https://github.com/1connect/nginx-config-formatter (https://github.com/slomkowski/nginx-config-formatter)
 
-- https://hub.docker.com/r/soulteary/nginx-formatter
+Runtime dependent components
+
+- ECMAScript 5.1(+) implementation in Go
+  - https://github.com/dop251/goja
