@@ -6,6 +6,7 @@ import (
 
 	"github.com/soulteary/nginx-formatter/internal/cmd"
 	"github.com/soulteary/nginx-formatter/internal/formatter"
+	"github.com/soulteary/nginx-formatter/internal/server"
 	"github.com/soulteary/nginx-formatter/internal/updater"
 	"github.com/soulteary/nginx-formatter/internal/version"
 )
@@ -15,7 +16,7 @@ func main() {
 
 	src, dest, indent, char, web, port := cmd.InitArgv()
 	if web {
-		fmt.Println(port)
+		server.Launch(port)
 	} else {
 		err := updater.UpdateConfInDir(src, dest, indent, char, formatter.Formatter)
 		if err != nil {

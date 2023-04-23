@@ -77,7 +77,6 @@ func InitArgv() (argvSrc string, argvDest string, argvIndent int, argvIndentChar
 
 	if web {
 		argvWeb = true
-		fmt.Println("Enable WebUI")
 		if port <= 1024 || port >= 65535 {
 			fmt.Println("Please set the port above 1024 and the port within 65535")
 			fmt.Printf("use the default value: `%d`\n", define.DEFAULT_PORT)
@@ -86,6 +85,7 @@ func InitArgv() (argvSrc string, argvDest string, argvIndent int, argvIndentChar
 			argvPort = port
 			fmt.Printf("Specify the indent char as: `%d`\n", port)
 		}
+		fmt.Printf("Enable WebUI, please visit http://localhost:%d\n", port)
 	} else {
 		argvWeb = false
 	}
