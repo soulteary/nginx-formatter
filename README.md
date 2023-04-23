@@ -8,7 +8,7 @@
 
 <img src=".github/logo.png" width="120" >
 
-Nginx configuration formatter under 10MB size, support CLI, WebUI, x86, ARM, Linux, macOS.
+Nginx configuration formatter ~10MB size, support CLI, WebUI, x86, ARM, Linux, macOS.
 
 <img src=".github/preview.png">
 
@@ -67,6 +67,14 @@ specified the port:
 
 ```bash
 ./nginx-formatter -web -port=8123
+```
+
+### Docker Usage
+
+There is no difference between using parameters in Docker and the above, for example, we start a Web UI formatting tool service in Docker:
+
+```bash
+docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:v1.0.0 -web
 ```
 
 ## Full parameters supported

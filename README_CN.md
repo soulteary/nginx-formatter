@@ -8,7 +8,7 @@
 
 <img src=".github/logo.png" width="120" >
 
-一款小巧（几MB）、简洁的 Nginx 格式化工具，支持命令行、WebUI、Docker、x86、ARM、macOS、Linux。
+一款 10MB 左右的，小巧、简洁的 Nginx 格式化工具，支持命令行、WebUI、Docker、x86、ARM、macOS、Linux。
 
 <img src=".github/preview.png">
 
@@ -67,6 +67,14 @@ docker pull soulteary/nginx-formatter:v1.0.0
 
 ```bash
 ./nginx-formatter -web -port=8123
+```
+
+### Docker 用法
+
+在 Docker 中使用和上面没有什么区别，比如我们启动一个在 Docker 中的 Web UI 格式化工具服务：
+
+```bash
+docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:v1.0.0 -web
 ```
 
 ## 支持的完整参数列表
