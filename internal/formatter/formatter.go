@@ -11,7 +11,7 @@ func Formatter(s string, indent int, char string) (string, error) {
 		return "", nil
 	}
 	vm := goja.New()
-	v, err := vm.RunString(fmt.Sprintf("%s;FormatNginxConf(`%s`)", JS_FORMATTER, s))
+	v, err := vm.RunString(fmt.Sprintf("%s;FormatNginxConf(`%s`, %d, `%s`)", JS_FORMATTER, s, indent, char))
 	if err != nil {
 		return "", err
 	}

@@ -208,8 +208,8 @@ function perform_indentation(lines) {
   return indented_lines;
 }
 
-function FormatNginxConf(text, indentation = "  ") {
-  options["INDENTATION"] = indentation;
+function FormatNginxConf(text, indentSize = 2, indentChar = " ") {
+  options["INDENTATION"] = indentChar.repeat(indentSize);
 
   let lines = clean_lines(text);
   lines = join_opening_bracket(lines);
