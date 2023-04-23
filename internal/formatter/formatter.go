@@ -6,7 +6,7 @@ import (
 	"github.com/dop251/goja"
 )
 
-func Formatter(s string) (string, error) {
+func Formatter(s string, indent int, char string) (string, error) {
 	if s == "" {
 		return "", nil
 	}

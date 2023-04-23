@@ -92,7 +92,7 @@ func ScanFiles(rootDir string) ([]string, error) {
 	return files, nil
 }
 
-func UpdateConfInDir(rootDir string, outputDir string, indent int, fn func(s string) (string, error)) error {
+func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar string, fn func(s string, indent int, char string) (string, error)) error {
 	files, err := ScanFiles(rootDir)
 	if err != nil {
 		return err
@@ -103,7 +103,7 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, fn func(s str
 			fmt.Printf("Formatter Nginx Conf %s failed, can not open the file\n", err)
 			return err
 		}
-		modifiedData, err := fn(FixVars(FixReturn(EncodeEscapeChars(string(buf)))))
+		modifiedData, err := fn(FixVars(FixReturn(EncodeEscapeChars(string(buf)))), indent, indentChar)
 		if err != nil {
 			fmt.Printf("Formatter Nginx Conf %s failed, can not format the file\n", err)
 			return err

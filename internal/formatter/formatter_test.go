@@ -57,7 +57,7 @@ http {
   }
 }`
 
-	result, err := formatter.Formatter(TestData)
+	result, err := formatter.Formatter(TestData, 2, " ")
 	if err != nil {
 		t.Errorf("formatter error: %v\n", err)
 	}

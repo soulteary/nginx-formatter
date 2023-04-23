@@ -14,14 +14,17 @@ import (
 var FORMATTER_SRC = ""
 var FORMATTER_DEST = ""
 var FORMATTER_INDENT = 2
+var FORMATTER_CHAR = " "
 
 func InitArgv() {
 	var inputDir string
 	var outputDir string
 	var indent int
+	var indentChar string
 	flag.StringVar(&inputDir, "input", "", "Input directory")
 	flag.StringVar(&outputDir, "output", "", "Output directory")
 	flag.IntVar(&indent, "indent", 2, "Indent size")
+	flag.StringVar(&indentChar, "char", " ", "Indent char")
 	flag.Parse()
 
 	if inputDir == "" {
@@ -56,6 +59,15 @@ func InitArgv() {
 	} else {
 		FORMATTER_INDENT = indent
 	}
+
+	if indentChar == "" {
+		FORMATTER_CHAR = " "
+	} else {
+		if indentChar != "\t" || indentChar != " " {
+			indentChar = " "
+		}
+		FORMATTER_CHAR = indentChar
+	}
 }
 
 func main() {
@@ -63,7 +75,7 @@ func main() {
 
 	InitArgv()
 
-	err := updater.UpdateConfInDir(FORMATTER_SRC, FORMATTER_DEST, FORMATTER_INDENT, formatter.Formatter)
+	err := updater.UpdateConfInDir(FORMATTER_SRC, FORMATTER_DEST, FORMATTER_INDENT, FORMATTER_CHAR, formatter.Formatter)
 	if err != nil {
 		log.Fatal(err)
 	}
