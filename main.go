@@ -11,10 +11,15 @@ import (
 	"github.com/soulteary/nginx-formatter/internal/version"
 )
 
+const (
+	DEFAULT_INDENT_SIZE = 2
+	DEFAULT_INDENT_CHAR = " "
+)
+
 var FORMATTER_SRC = ""
 var FORMATTER_DEST = ""
-var FORMATTER_INDENT = 2
-var FORMATTER_CHAR = " "
+var FORMATTER_INDENT = DEFAULT_INDENT_SIZE
+var FORMATTER_CHAR = DEFAULT_INDENT_CHAR
 
 func InitArgv() {
 	var inputDir string
@@ -23,8 +28,8 @@ func InitArgv() {
 	var indentChar string
 	flag.StringVar(&inputDir, "input", "", "Input directory")
 	flag.StringVar(&outputDir, "output", "", "Output directory")
-	flag.IntVar(&indent, "indent", 2, "Indent size")
-	flag.StringVar(&indentChar, "char", " ", "Indent char")
+	flag.IntVar(&indent, "indent", DEFAULT_INDENT_SIZE, fmt.Sprintf("Indent size, defualt: %d", DEFAULT_INDENT_SIZE))
+	flag.StringVar(&indentChar, "char", DEFAULT_INDENT_CHAR, fmt.Sprintf("Indent char, defualt: `%s`", DEFAULT_INDENT_CHAR))
 	flag.Parse()
 
 	if inputDir == "" {
@@ -52,22 +57,30 @@ func InitArgv() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
+		fmt.Println("Specify the output directory as:", inputDir)
+		FORMATTER_DEST = outputDir
 	}
 
 	if indent <= 0 {
-		FORMATTER_INDENT = 2
+		fmt.Println("No output indent size specified, use the default value:", DEFAULT_INDENT_SIZE)
+		FORMATTER_INDENT = DEFAULT_INDENT_SIZE
 	} else {
+		fmt.Println("Specify the indent size as:", inputDir)
 		FORMATTER_INDENT = indent
 	}
 
 	if indentChar == "" {
-		FORMATTER_CHAR = " "
+		FORMATTER_CHAR = DEFAULT_INDENT_CHAR
+		fmt.Printf("No output indent char specified, use the default value: `%s`\n", FORMATTER_CHAR)
 	} else {
-		if indentChar != "\t" || indentChar != " " {
-			indentChar = " "
+		if indentChar != "\t" || indentChar != " " || indentChar != "\\s" {
+			indentChar = DEFAULT_INDENT_CHAR
+			fmt.Printf("Specify the indent char not support, use the default value: `%s`\n", DEFAULT_INDENT_CHAR)
 		}
 		FORMATTER_CHAR = indentChar
+		fmt.Printf("Specify the indent char as: `%s`\n", FORMATTER_CHAR)
 	}
+	fmt.Println()
 }
 
 func main() {
