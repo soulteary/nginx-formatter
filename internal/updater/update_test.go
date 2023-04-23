@@ -75,3 +75,58 @@ func TestDecodeEscapeChars(t *testing.T) {
 		}
 	}
 }
+
+func TestFixReturn(t *testing.T) {
+	testCases := []struct {
+		input    string
+		expected string
+	}{
+		{
+			input:    "",
+			expected: "",
+		},
+		{
+			input:    "return 200 ok;",
+			expected: "return 200 \"ok\";",
+		},
+		{
+			input:    "return 200 $content;",
+			expected: "return 200 \"$content\";",
+		},
+		{
+			input:    "return BACKEND\n;",
+			expected: "return BACKEND;",
+		},
+		{
+			input:    "return 200;",
+			expected: "return 200;",
+		},
+		{
+			input:    "return   200   ;",
+			expected: "return 200;",
+		},
+		{
+			input:    "return \"ok\";",
+			expected: "return \"ok\";",
+		},
+		{
+			input:    "return 200 \"ok\";",
+			expected: "return 200 \"ok\";",
+		},
+		{
+			input:    "return 200        \"1\"    ;",
+			expected: "return 200 \"1\";",
+		},
+		{
+			input:    "return   \"1\"    ;",
+			expected: "return \"1\";",
+		},
+	}
+
+	for _, tc := range testCases {
+		output := updater.FixVars(updater.FixReturn(updater.EncodeEscapeChars(tc.input)))
+		if output != tc.expected {
+			t.Errorf("Unexpected output. Input: %s, Expected: %s, Output: %s", tc.input, tc.expected, (updater.DecodeEscapeChars(output)))
+		}
+	}
+}
