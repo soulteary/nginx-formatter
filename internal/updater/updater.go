@@ -117,10 +117,15 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 			output = filepath.Join(outputDir, relPath)
 		}
 
-		os.MkdirAll(filepath.Dir(output), 0700)
+		err = os.MkdirAll(filepath.Dir(output), 0700)
+		if err != nil {
+			fmt.Printf("Formatter Nginx Conf %s failed, can not prepare the save dir\n", err)
+			return err
+		}
+
 		err = os.WriteFile(output, []byte(DecodeEscapeChars(modifiedData)), 0600)
 		if err != nil {
-			fmt.Printf("Formatter Nginx Conf %s failed, can not save the file\n", output)
+			fmt.Printf("Formatter Nginx Conf %s failed, can not save the file\n", err)
 			return err
 		}
 
