@@ -89,14 +89,21 @@ Usage of ./nginx-formatter:
 
 格式化组件
 
-- 2016/06/24 Slomkowski 使用 Python 创建了一个 nginx 配置文件美化器，在 [Apache-2.0 许可] 下发布
+- 2016/06/24 Slomkowski 使用 Python 创建了一个 nginx 配置文件美化器，在 [Apache-2.0 许可] 下发布。
   - https://github.com/1connect/nginx-config-formatter (https://github.com/slomkowski/nginx-config-formatter)
-- 2016/08/24 Yosef 在 [Apache-2.0 许可] 下移植了 JavaScript beautifier
+- 2016/08/24 Yosef 在 [Apache-2.0 许可] 下移植了 JavaScript beautifier。
   - https://github.com/vasilevich/nginxbeautifier
 - 2023/04/18，soulteary 根据 [Apache-2.0 许可] 简化程序，修复错误，提高运行速度，并允许在 Golang 中运行。
   - https://github.com/soulteary/nginx-formatter
 
 JavaScript 运行时组件：
 
-- Go 中的 ECMAScript 5.1(+) 实现
+- Go 中的 ECMAScript 5.1(+) 实现，在 [MIT 许可]下发布。
   - https://github.com/dop251/goja
+
+网络组件
+
+- Gin，HTTP Web 框架，在 [MIT 许可]下发布。
+  - https://github.com/gin-gonic/gin
+- Code Mirror, 浏览器内的编辑器，在 [MIT 许可]下发布。
+  - https://github.com/codemirror/codemirror5

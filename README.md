@@ -99,7 +99,14 @@ Formatter Components
   - simplify the program, fix bugs, improve running speed, and allow running in golang
   - https://github.com/soulteary/nginx-formatter
 
-Runtime dependent components
+Runtime dependent Components
 
-- ECMAScript 5.1(+) implementation in Go
+- ECMAScript 5.1(+) implementation in Go, under [MIT license].
   - https://github.com/dop251/goja
+
+Web Components
+
+- Gin is a HTTP web framework written in Go (Golang), under [MIT license].
+  - https://github.com/gin-gonic/gin
+- Code Mirror, in-browser code editor, under [MIT license].
+  - https://github.com/codemirror/codemirror5
