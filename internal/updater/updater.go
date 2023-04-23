@@ -92,34 +92,43 @@ func ScanFiles(rootDir string) ([]string, error) {
 	return files, nil
 }
 
-func UpdateConfInDir(rootDir string, fn func(s string) (string, error)) error {
-
+func UpdateConfInDir(rootDir string, outputDir string, indent int, fn func(s string) (string, error)) error {
 	files, err := ScanFiles(rootDir)
 	if err != nil {
 		return err
 	}
 	for _, file := range files {
-		data, err := os.ReadFile(file)
+		buf, err := os.ReadFile(file)
 		if err != nil {
+			fmt.Printf("Formatter Nginx Conf %s failed, can not open the file\n", err)
 			return err
 		}
-		modifiedData, err := fn(FixVars(FixReturn(EncodeEscapeChars(string(data)))))
+		modifiedData, err := fn(FixVars(FixReturn(EncodeEscapeChars(string(buf)))))
 		if err != nil {
-			return err
-		}
-
-		err = os.WriteFile(file, []byte(DecodeEscapeChars(modifiedData)), 0644)
-		if err != nil {
+			fmt.Printf("Formatter Nginx Conf %s failed, can not format the file\n", err)
 			return err
 		}
 
-		rel, err := filepath.Rel(rootDir, file)
+		output := ""
+		relPath, err := filepath.Rel(rootDir, file)
 		if err != nil {
-			fmt.Printf("Formatter Nginx Conf %s Successed\n", file)
+			output = filepath.Join(outputDir, file)
 		} else {
-			fmt.Printf("Formatter Nginx Conf %s Successed\n", rel)
+			output = filepath.Join(outputDir, relPath)
+		}
+
+		err = os.WriteFile(output, []byte(DecodeEscapeChars(modifiedData)), 0644)
+		if err != nil {
+			fmt.Printf("Formatter Nginx Conf %s failed, can not save the file\n", output)
+			return err
+		}
+
+		relPath, err = filepath.Rel(rootDir, output)
+		if err != nil {
+			fmt.Printf("Formatter Nginx Conf %s Successed\n", output)
+		} else {
+			fmt.Printf("Formatter Nginx Conf %s Successed\n", relPath)
 		}
 	}
-
 	return nil
 }
