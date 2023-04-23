@@ -8,7 +8,9 @@
 
 <img src=".github/logo.png" width="120" >
 
-一款小巧（几MB）、简洁的 Nginx 格式化工具。
+一款小巧（几MB）、简洁的 Nginx 格式化工具，支持命令行、WebUI、Docker、x86、ARM、macOS、Linux。
+
+<img src=".github/preview.png">
 
 ## 程序下载
 
@@ -31,11 +33,15 @@ docker pull soulteary/nginx-formatter:v0.5.0
 ./nginx-formatter
 ```
 
+### 通用玩法 (CLI & WebUI)
+
 使用不同的缩进符号（可以使用空格、制表符、`\s`、`\t`、` `）和缩进量：
 
 ```bash
 ./nginx-formatter -indent=4 -char=" "
 ```
+
+### 命令行用法（CLI）
 
 格式化指定目录中的配置文件：
 
@@ -47,6 +53,20 @@ docker pull soulteary/nginx-formatter:v0.5.0
 
 ```bash
 ./nginx-formatter -input=./your-dir-path -output=./your-output-dir
+```
+
+### WebUI 用法
+
+启动 WebUI 界面：
+
+```bash
+./nginx-formatter -web
+```
+
+指定服务端口：
+
+```bash
+./nginx-formatter -web -port=8123
 ```
 
 ## 支持的完整参数列表

@@ -8,7 +8,9 @@
 
 <img src=".github/logo.png" width="120" >
 
-Nginx configuration formatter under 10MB size.
+Nginx configuration formatter under 10MB size, support CLI, WebUI, x86, ARM, Linux, macOS.
+
+<img src=".github/preview.png">
 
 ## Download
 
@@ -31,11 +33,15 @@ Use default parameters to format all configuration files in the current director
 ./nginx-formatter
 ```
 
+### Common Usage (CLI & WebUI)
+
 Use different indentation symbols (You can use spaces, tabs, ` `, `\s`, `\t`) and indentation amounts:
 
 ```bash
 ./nginx-formatter -indent=4 -char=" "
 ```
+
+### CLI Usage
 
 Format the configuration file in the specified directory:
 
@@ -49,8 +55,19 @@ Format a file somewhere and save it in a new directory:
 ./nginx-formatter -input=./your-dir-path -output=./your-output-dir
 ```
 
+### WebUI Usage
 
+Start the web interface:
 
+```bash
+./nginx-formatter -web
+```
+
+specified the port:
+
+```bash
+./nginx-formatter -web -port=8123
+```
 
 ## Full parameters supported
 

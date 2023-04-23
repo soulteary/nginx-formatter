@@ -15,3 +15,4 @@
 # vendor/
 
 *.conf
+.DS_Store
