@@ -73,7 +73,7 @@ func InitArgv() {
 		FORMATTER_CHAR = DEFAULT_INDENT_CHAR
 		fmt.Printf("No output indent char specified, use the default value: `%s`\n", FORMATTER_CHAR)
 	} else {
-		if indentChar != "\t" || indentChar != " " || indentChar != "\\s" {
+		if !(indentChar == "\t" || indentChar == " " || indentChar == "\\s") {
 			indentChar = DEFAULT_INDENT_CHAR
 			fmt.Printf("Specify the indent char not support, use the default value: `%s`\n", DEFAULT_INDENT_CHAR)
 		}
