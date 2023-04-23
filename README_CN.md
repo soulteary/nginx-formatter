@@ -22,7 +22,7 @@
 
 ```bash
 docker pull soulteary/nginx-formatter:latest
-docker pull soulteary/nginx-formatter:v0.5.0
+docker pull soulteary/nginx-formatter:v1.0.0
 ```
 
 ## 程序使用
@@ -75,7 +75,7 @@ docker pull soulteary/nginx-formatter:v0.5.0
 Nginx Formatter
 
 Usage of ./nginx-formatter:
-  -char
+  -char  
     	Indent char, defualt:   (default " ")
   -indent int
     	Indent size, defualt: 2 (default 2)
@@ -83,6 +83,10 @@ Usage of ./nginx-formatter:
     	Input directory
   -output string
     	Output directory
+  -port 8080
+    	WebUI Port, defualt: 8080 (default 8080)
+  -web false
+    	Enable WebUI, defualt: false
 ```
 
 ## 鸣谢

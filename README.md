@@ -22,7 +22,7 @@ If you use docker, you can use the following command ([DockerHub](https://hub.do
 
 ```bash
 docker pull soulteary/nginx-formatter:latest
-docker pull soulteary/nginx-formatter:v0.5.0
+docker pull soulteary/nginx-formatter:v1.0.0
 ```
 
 ## Usage
@@ -77,7 +77,7 @@ List of parameters supported:
 Nginx Formatter
 
 Usage of ./nginx-formatter:
-  -char
+  -char  
     	Indent char, defualt:   (default " ")
   -indent int
     	Indent size, defualt: 2 (default 2)
@@ -85,6 +85,10 @@ Usage of ./nginx-formatter:
     	Input directory
   -output string
     	Output directory
+  -port 8080
+    	WebUI Port, defualt: 8080 (default 8080)
+  -web false
+    	Enable WebUI, defualt: false
 ```
 
 ## Credits
