@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nginx Formatter</title>
+    <link rel="stylesheet" href="base.css">
+    <script src="base.js"></script>
+    <!-- Minify file list:
+        - https://codemirror.net/5/lib/codemirror.css
+        - https://codemirror.net/5/theme/material-darker.css
+        - https://codemirror.net/5/lib/codemirror.js
+        - https://codemirror.net/5/mode/nginx/nginx.js
+        - https://codemirror.net/5/addon/selection/active-line.js
+        - https://codemirror.net/5/addon/edit/matchbrackets.js
+     -->
+    <style>
+        .CodeMirror {
+            border: 1px solid black;
+            font-size: 13px
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        form {
+            width: 600px;
+            margin: 0 auto;
+        }
+
+        button {
+            background: none;
+            border: none;
+            color: #f4f7ff;
+            cursor: pointer;
+            font-family: sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            height: 40px;
+            outline: none;
+            overflow: hidden;
+            padding: 0 10px;
+            position: relative;
+            width: 190px;
+            -webkit-tap-highlight-color: transparent;
+            text-align: center;
+            margin: 0 auto;
+            display: block;
+            margin-top: 20px;
+        }
+
+        button::before {
+            background: #1f2335;
+            border-radius: 50px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4) inset;
+            content: "";
+            display: block;
+            height: 100%;
+            margin: 0 auto;
+            position: relative;
+            transition: width 0.2s cubic-bezier(0.39, 1.86, 0.64, 1) 0.3s;
+            width: 100%;
+        }
+
+
+        .label {
+            left: 50%;
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+        }
+
+
+    </style>
+</head>
+
+<body>
+    <form method="post" action="/format">
+        <h1>Nginx Formatter</h1>
+        <textarea id="code" name="code">
+# Nginx Formatter, by soulteary
+# https://github.com/soulteary/nginx-formatter
+load_module modules/ngx_http_js_module.so;
+
+events {  }
+
+http {
+    js_path "/etc/nginx/njs/";
+
+    js_import main from http/api/set_keyval.js;
+
+    keyval_zone zone=foo:10m;
+
+    server {
+        listen 80;
+
+        location /keyval {
+            js_content main.set_keyval;
+        }
+
+        location /api {
+            internal;
+            api write=on;
+        }
+
+        location /api/ro {
+            api;
+        }
+
+    }
+}</textarea>
+
+        <div class="button-container">
+            <button>
+                <div class="label">Format</div>
+            </button>
+        </div>
+    </form>
+
+    <script>
+        var editor = CodeMirror.fromTextArea(document.getElementById("code"), {
+            lineNumbers: true,
+            styleActiveLine: true,
+            matchBrackets: true,
+            theme: "material-darker",
+        });
+        editor.setSize("100%", "100%")
+    </script>
+</body>
+</html>
