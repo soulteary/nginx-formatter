@@ -118,7 +118,7 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 		}
 
 		os.MkdirAll(filepath.Dir(output), 0700)
-		err = os.WriteFile(output, []byte(DecodeEscapeChars(modifiedData)), 0644)
+		err = os.WriteFile(output, []byte(DecodeEscapeChars(modifiedData)), 0600)
 		if err != nil {
 			fmt.Printf("Formatter Nginx Conf %s failed, can not save the file\n", output)
 			return err

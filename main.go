@@ -52,7 +52,7 @@ func InitArgv() {
 		fmt.Println("No output directory specified, use the current working directory:", dir)
 		FORMATTER_DEST = dir
 	} else {
-		err := os.MkdirAll(outputDir, 0755)
+		err := os.MkdirAll(outputDir, 0750)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
