@@ -8,7 +8,7 @@ WORKDIR /build
 ENV CGO_ENABLED=0
 COPY ./go.mod .
 COPY ./go.sum .
-RUN go mod tidy
+RUN go mod tidy && go mod download
 COPY ./ .
 RUN go build -ldflags "-w -s"
 RUN upx -9 -o nginx-formatter.minify nginx-formatter && mv nginx-formatter.minify nginx-formatter
