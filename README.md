@@ -22,7 +22,7 @@ If you use docker, you can use the following command ([DockerHub](https://hub.do
 
 ```bash
 docker pull soulteary/nginx-formatter:latest
-docker pull soulteary/nginx-formatter:v1.1.0
+docker pull soulteary/nginx-formatter:v1.1.1
 ```
 
 ## Usage
@@ -74,13 +74,13 @@ specified the port:
 There is no difference between using parameters in Docker and the above, for example, we start a Web UI formatting tool service in Docker:
 
 ```bash
-docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:v1.1.0 -web
+docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:v1.1.1 -web
 ```
 
 If you want to format the configuration of the current directory, you can use the program in Docker with a command similar to the following:
 
 ```bash
-docker run --rm -it -v `pwd`:/app soulteary/nginx-formatter:v1.1.0 -input=/app
+docker run --rm -it -v `pwd`:/app soulteary/nginx-formatter:v1.1.1 -input=/app
 ```
 
 ## Full parameters supported

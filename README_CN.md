@@ -22,7 +22,7 @@
 
 ```bash
 docker pull soulteary/nginx-formatter:latest
-docker pull soulteary/nginx-formatter:v1.1.0
+docker pull soulteary/nginx-formatter:v1.1.1
 ```
 
 ## 程序使用
@@ -74,14 +74,14 @@ docker pull soulteary/nginx-formatter:v1.1.0
 在 Docker 中使用和上面没有什么区别，比如我们启动一个在 Docker 中的 Web UI 格式化工具服务：
 
 ```bash
-docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:v1.1.0 -web
+docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:v1.1.1 -web
 ```
 
 
 如果你希望格式化当前目录的配置，可以通过类似下面的命令，来使用 Docker 中的程序：
 
 ```bash
-docker run --rm -it -v `pwd`:/app soulteary/nginx-formatter:v1.1.0 -input=/app
+docker run --rm -it -v `pwd`:/app soulteary/nginx-formatter:v1.1.1 -input=/app
 ```
 
 
