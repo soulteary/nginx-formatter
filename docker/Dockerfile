@@ -6,8 +6,10 @@ RUN echo '' > /etc/apk/repositories && \
 RUN apk add upx
 WORKDIR /build
 ENV CGO_ENABLED=0
-COPY ./main.go .
 COPY ./go.mod .
+COPY ./go.sum .
+RUN go mod tidy
+COPY ./ .
 RUN go build -ldflags "-w -s"
 RUN upx -9 -o nginx-formatter.minify nginx-formatter && mv nginx-formatter.minify nginx-formatter
 
