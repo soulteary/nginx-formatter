@@ -3,9 +3,9 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 
+	"github.com/soulteary/nginx-formatter/internal/checker"
 	"github.com/soulteary/nginx-formatter/internal/define"
 )
 
@@ -28,9 +28,7 @@ func InitArgv() (argvSrc string, argvDest string, argvIndent int, argvIndentChar
 
 	if inputDir == "" {
 		dir, err := os.Getwd()
-		if err != nil {
-			log.Fatal(err)
-		}
+		checker.FailToRun(err)
 		fmt.Println("No input directory specified, use the current working directory:", dir)
 		argvSrc = dir
 	} else {
@@ -40,9 +38,7 @@ func InitArgv() (argvSrc string, argvDest string, argvIndent int, argvIndentChar
 
 	if outputDir == "" {
 		dir, err := os.Getwd()
-		if err != nil {
-			log.Fatal(err)
-		}
+		checker.FailToRun(err)
 		fmt.Println("No output directory specified, use the current working directory:", dir)
 		argvDest = dir
 	} else {
