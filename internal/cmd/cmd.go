@@ -65,14 +65,19 @@ func InitArgv() (argvSrc string, argvDest string, argvIndent int, argvIndentChar
 
 	if indentChar == "" {
 		argvIndentChar = define.DEFAULT_INDENT_CHAR
-		fmt.Printf("No output indent char specified, use the default value: `%s`\n", define.DEFAULT_INDENT_CHAR)
+		fmt.Printf("No output indent char specified, use the default value: `%s`\n", define.DISPLAY_INDENT_CHARS[define.DEFAULT_INDENT_CHAR])
 	} else {
 		if !(indentChar == "\t" || indentChar == " " || indentChar == "\\s") {
 			indentChar = define.DEFAULT_INDENT_CHAR
-			fmt.Printf("Specify the indent char not support, use the default value: `%s`\n", define.DEFAULT_INDENT_CHAR)
+			fmt.Printf("Specify the indent char not support, use the default value: `%s`\n", define.DISPLAY_INDENT_CHARS[define.DEFAULT_INDENT_CHAR])
 		}
 		argvIndentChar = indentChar
-		fmt.Printf("Specify the indent char as: `%s`\n", indentChar)
+		display, ok := define.DISPLAY_INDENT_CHARS[indentChar]
+		if ok {
+			fmt.Printf("Specify the indent char as: `%s`\n", display)
+		} else {
+			fmt.Printf("Specify the indent char as: `%s`\n", indentChar)
+		}
 	}
 
 	if web {

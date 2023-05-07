@@ -11,6 +11,12 @@ const (
 	DEFAULT_WEB  = false
 )
 
+var DISPLAY_INDENT_CHARS = map[string]string{
+	" ":   "[SPACE]",
+	"\\s": "[SPACE]",
+	"\t":  "[TAB]",
+}
+
 const (
 	APP_ARGV_INPUT  = "input"
 	APP_ARGV_OUTPUT = "output"
