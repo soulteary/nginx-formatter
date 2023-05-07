@@ -59,7 +59,7 @@ func InitArgv() (argvSrc string, argvDest string, argvIndent int, argvIndentChar
 		fmt.Println("No output indent size specified, use the default value:", define.DEFAULT_INDENT_SIZE)
 		argvIndent = define.DEFAULT_INDENT_SIZE
 	} else {
-		fmt.Println("Specify the indent size as:", inputDir)
+		fmt.Println("Specify the indent size as:", indent)
 		argvIndent = indent
 	}
 
