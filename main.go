@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	fmt.Printf("Nginx Formatter v%s\n\n", version.Version)
+	fmt.Printf("Nginx Formatter %s\n\n", version.Version)
 
 	src, dest, indent, char, web, port := cmd.InitArgv()
 	if web {
