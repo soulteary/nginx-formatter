@@ -12,6 +12,13 @@
 
 <img src=".github/preview.png">
 
+> **v2.0.0 更新说明**
+>
+> - 使用原生 Go AST 的 Nginx 解析器重写了格式化引擎，替换了此前基于 `goja` / `beautifier.js` 的运行时。不再依赖 JavaScript 运行时，运行更快、体积更小。
+> - WebUI 切换到 [Fiber](https://github.com/gofiber/fiber) Web 框架。
+> - 升级到 Go 1.26，并采用根目录限定（root-scoped）的文件系统访问，目录遍历更安全。
+> - 多项问题修复：保留裸词中的反斜杠转义、容忍指令在 `}` 或文件结尾前缺失分号、更智能的 `return` 指令规范化处理。
+
 ## 程序下载
 
 从[发布页面](https://github.com/soulteary/nginx-formatter/releases)下载适用于您系统和架构的二进制文件和压缩包。
@@ -22,7 +29,7 @@
 
 ```bash
 docker pull soulteary/nginx-formatter:latest
-docker pull soulteary/nginx-formatter:v1.1.1
+docker pull soulteary/nginx-formatter:v2.0.0
 ```
 
 ## 程序使用
@@ -74,14 +81,14 @@ docker pull soulteary/nginx-formatter:v1.1.1
 在 Docker 中使用和上面没有什么区别，比如我们启动一个在 Docker 中的 Web UI 格式化工具服务：
 
 ```bash
-docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:v1.1.1 -web
+docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:v2.0.0 -web
 ```
 
 
 如果你希望格式化当前目录的配置，可以通过类似下面的命令，来使用 Docker 中的程序：
 
 ```bash
-docker run --rm -it -v `pwd`:/app soulteary/nginx-formatter:v1.1.1 -input=/app
+docker run --rm -it -v `pwd`:/app soulteary/nginx-formatter:v2.0.0 -input=/app
 ```
 
 
@@ -115,11 +122,8 @@ Usage of ./nginx-formatter:
   - https://github.com/vasilevich/nginxbeautifier
 - 2023/04/18，soulteary 根据 [Apache-2.0 许可] 简化程序，修复错误，提高运行速度，并允许在 Golang 中运行。
   - https://github.com/soulteary/nginx-formatter
-
-JavaScript 运行时组件：
-
-- Go 中的 ECMAScript 5.1(+) 实现，在 [MIT 许可]下发布。
-  - https://github.com/dop251/goja
+- v2.0.0 起，soulteary 使用原生 Go AST 的 Nginx 解析器重写了格式化器（移除 JavaScript 运行时），在 [Apache-2.0 许可] 下发布。
+  - https://github.com/soulteary/nginx-formatter
 
 网络组件
 

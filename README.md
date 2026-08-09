@@ -12,6 +12,13 @@ Nginx configuration formatter ~10MB size, support CLI, WebUI, x86, ARM, Linux, m
 
 <img src=".github/preview.png">
 
+> **What's new in v2.0.0**
+>
+> - Rewrote the formatting engine with a native Go AST-based nginx parser, replacing the previous `goja` / `beautifier.js` runtime. No JavaScript runtime dependency anymore, faster and lighter.
+> - Switched the WebUI to the [Fiber](https://github.com/gofiber/fiber) web framework.
+> - Upgraded to Go 1.26 with root-scoped filesystem access for safer directory traversal.
+> - Various bug fixes: preserve backslash escapes in bare words, tolerate directives missing a trailing semicolon before `}` or EOF, and smarter `return` directive normalization.
+
 ## Download
 
 Download the binaries for your system and architecture from the [releases page](https://github.com/soulteary/nginx-formatter/releases).
@@ -22,7 +29,7 @@ If you use docker, you can use the following command ([DockerHub](https://hub.do
 
 ```bash
 docker pull soulteary/nginx-formatter:latest
-docker pull soulteary/nginx-formatter:v1.1.1
+docker pull soulteary/nginx-formatter:v2.0.0
 ```
 
 ## Usage
@@ -74,13 +81,13 @@ specified the port:
 There is no difference between using parameters in Docker and the above, for example, we start a Web UI formatting tool service in Docker:
 
 ```bash
-docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:v1.1.1 -web
+docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:v2.0.0 -web
 ```
 
 If you want to format the configuration of the current directory, you can use the program in Docker with a command similar to the following:
 
 ```bash
-docker run --rm -it -v `pwd`:/app soulteary/nginx-formatter:v1.1.1 -input=/app
+docker run --rm -it -v `pwd`:/app soulteary/nginx-formatter:v2.0.0 -input=/app
 ```
 
 ## Full parameters supported
@@ -116,11 +123,8 @@ Formatter Components
 - soulteary Modify the JavaScript version for golang execution, under [Apache-2.0 license], 18/04/2023:
   - simplify the program, fix bugs, improve running speed, and allow running in golang
   - https://github.com/soulteary/nginx-formatter
-
-Runtime dependent Components
-
-- ECMAScript 5.1(+) implementation in Go, under [MIT license].
-  - https://github.com/dop251/goja
+- soulteary Rewrote the formatter with a native Go AST-based nginx parser (dropping the JavaScript runtime), under [Apache-2.0 license], since v2.0.0:
+  - https://github.com/soulteary/nginx-formatter
 
 Web Components
 
