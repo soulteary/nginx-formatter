@@ -63,7 +63,7 @@ func InitArgv() (argvSrc string, argvDest string, argvIndent int, argvIndentChar
 		argvIndentChar = define.DEFAULT_INDENT_CHAR
 		fmt.Printf("No output indent char specified, use the default value: `%s`\n", define.DISPLAY_INDENT_CHARS[define.DEFAULT_INDENT_CHAR])
 	} else {
-		if !(indentChar == "\t" || indentChar == " " || indentChar == "\\s") {
+		if indentChar != "\t" && indentChar != " " && indentChar != "\\s" {
 			indentChar = define.DEFAULT_INDENT_CHAR
 			fmt.Printf("Specify the indent char not support, use the default value: `%s`\n", define.DISPLAY_INDENT_CHARS[define.DEFAULT_INDENT_CHAR])
 		}

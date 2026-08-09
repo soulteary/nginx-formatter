@@ -62,21 +62,21 @@ func (l *Lexer) Next() Token {
 	startLine := l.line
 	c := l.peek()
 
-	switch {
-	case c == 0:
+	switch c {
+	case 0:
 		return Token{Type: TokenEOF, Line: startLine}
-	case c == ';':
+	case ';':
 		l.next()
 		return Token{Type: TokenSemicolon, Value: ";", Line: startLine}
-	case c == '{':
+	case '{':
 		l.next()
 		return Token{Type: TokenLBrace, Value: "{", Line: startLine}
-	case c == '}':
+	case '}':
 		l.next()
 		return Token{Type: TokenRBrace, Value: "}", Line: startLine}
-	case c == '#':
+	case '#':
 		return l.lexComment(startLine)
-	case c == '"' || c == '\'':
+	case '"', '\'':
 		return l.lexString(startLine)
 	default:
 		return l.lexIdent(startLine)

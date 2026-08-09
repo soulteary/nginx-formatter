@@ -61,9 +61,7 @@ func renderNodes(lines *[]string, nodes []Node, level int, unit string) {
 			}
 			*lines = append(*lines, head+"{"+inlineComment(node.OpenComment))
 			base := indentOf(level+1, unit)
-			for _, line := range reindentRawLines(raw, base) {
-				*lines = append(*lines, line)
-			}
+			*lines = append(*lines, reindentRawLines(raw, base)...)
 			*lines = append(*lines, indentOf(level, unit)+"}"+inlineComment(node.InlineComment))
 		}
 	}

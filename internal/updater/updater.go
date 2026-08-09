@@ -45,7 +45,7 @@ func FixReturn(s string) string {
 			}
 		} else { // eg: `return BACKEND\n;`
 			found := scene3.FindString(s)
-			if !(strings.HasPrefix(found, `"`) && strings.HasSuffix(found, `"`)) {
+			if !strings.HasPrefix(found, `"`) || !strings.HasSuffix(found, `"`) {
 				return strings.TrimSpace(scene3.ReplaceAllString(s, "return $1;"))
 			} else {
 				return strings.TrimSpace(scene3.ReplaceAllString(s, "return \"$1\";"))
