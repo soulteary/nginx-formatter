@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/soulteary/nginx-formatter/internal/checker"
 	"github.com/soulteary/nginx-formatter/internal/cmd"
@@ -20,9 +21,15 @@ func main() {
 		checker.FailToRun(err)
 	} else {
 		checker.InDockerAndWorkDirIsRoot(src)
-		checker.InputDirExist(src)
 
-		err := updater.UpdateConfInDir(src, dest, indent, char, formatter.Formatter)
+		info, err := os.Stat(src)
+		checker.FailToRun(err)
+
+		if info.IsDir() {
+			err = updater.UpdateConfInDir(src, dest, indent, char, formatter.Formatter)
+		} else {
+			err = updater.UpdateConfFile(src, dest, indent, char, formatter.Formatter)
+		}
 		checker.FailToRun(err)
 	}
 }

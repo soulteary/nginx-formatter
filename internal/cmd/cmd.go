@@ -9,6 +9,23 @@ import (
 	"github.com/soulteary/nginx-formatter/internal/define"
 )
 
+// resolveOutputDefault decides the effective output value when the -output
+// flag is empty:
+//   - output != ""                    -> returned as-is
+//   - output == "" and src is a file  -> returns "" so UpdateConfFile overwrites in place
+//   - output == "" and src is a dir   -> falls back to the current working directory
+func resolveOutputDefault(src string, output string) (string, error) {
+	if output != "" {
+		return output, nil
+	}
+
+	if info, err := os.Stat(src); err == nil && !info.IsDir() {
+		return "", nil
+	}
+
+	return os.Getwd()
+}
+
 func InitArgv() (argvSrc string, argvDest string, argvIndent int, argvIndentChar string, argvWeb bool, argvPort int) {
 	var inputDir string
 	flag.StringVar(&inputDir, define.APP_ARGV_INPUT, define.DEFAULT_WORKDIR, "Input directory")
@@ -37,17 +54,16 @@ func InitArgv() (argvSrc string, argvDest string, argvIndent int, argvIndentChar
 	}
 
 	if outputDir == "" {
-		dir, err := os.Getwd()
+		dest, err := resolveOutputDefault(argvSrc, outputDir)
 		checker.FailToRun(err)
-		fmt.Println("No output directory specified, use the current working directory:", dir)
-		argvDest = dir
-	} else {
-		err := os.MkdirAll(outputDir, 0750)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+		if dest == "" {
+			fmt.Println("No output specified, will overwrite the input file in place")
+		} else {
+			fmt.Println("No output directory specified, use the current working directory:", dest)
 		}
-		fmt.Println("Specify the output directory as:", inputDir)
+		argvDest = dest
+	} else {
+		fmt.Println("Specify the output directory as:", outputDir)
 		argvDest = outputDir
 	}
 

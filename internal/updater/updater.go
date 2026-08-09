@@ -97,6 +97,59 @@ func ScanFiles(rootDir string) ([]string, error) {
 	return files, nil
 }
 
+// resolveTarget decides where the formatted single-file output should be
+// written based on the -output value:
+//   - output == ""          -> overwrite inputFile in place
+//   - output is a directory -> filepath.Join(output, filepath.Base(inputFile))
+//   - otherwise             -> treat output as a file path, creating its parent
+//     directory when needed
+func resolveTarget(inputFile string, output string) (string, error) {
+	if output == "" {
+		return inputFile, nil
+	}
+
+	if info, err := os.Stat(output); err == nil && info.IsDir() {
+		return filepath.Join(output, filepath.Base(inputFile)), nil
+	}
+
+	if dir := filepath.Dir(output); dir != "." && dir != "" {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			return "", err
+		}
+	}
+	return output, nil
+}
+
+// UpdateConfFile formats a single file. Unlike UpdateConfInDir it does not
+// filter by the .conf suffix, so any file can be formatted.
+func UpdateConfFile(inputFile string, output string, indent int, indentChar string, fn func(s string, indent int, char string) (string, error)) error {
+	buf, err := os.ReadFile(inputFile)
+	if err != nil {
+		fmt.Printf("Formatter Nginx Conf %s failed, can not open the file\n", err)
+		return err
+	}
+
+	modifiedData, err := fn(FixReturn(string(buf)), indent, indentChar)
+	if err != nil {
+		fmt.Printf("Formatter Nginx Conf %s failed, can not format the file\n", err)
+		return err
+	}
+
+	target, err := resolveTarget(inputFile, output)
+	if err != nil {
+		fmt.Printf("Formatter Nginx Conf %s failed, can not prepare the save dir\n", err)
+		return err
+	}
+
+	if err := os.WriteFile(target, []byte(modifiedData), 0600); err != nil {
+		fmt.Printf("Formatter Nginx Conf %s failed, can not save the file\n", err)
+		return err
+	}
+
+	fmt.Printf("Formatter Nginx Conf %s Successed\n", target)
+	return nil
+}
+
 func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar string, fn func(s string, indent int, char string) (string, error)) error {
 	files, err := ScanFiles(rootDir)
 	if err != nil {

@@ -15,14 +15,6 @@ func InDockerAndWorkDirIsRoot(src string) {
 	}
 }
 
-func InputDirExist(src string) {
-	if _, err := os.Stat(src); err != nil {
-		fmt.Println("The directory you specified does not exist, please check the path parameters and try again.")
-		fmt.Println("Input directory:", src)
-		os.Exit(0)
-	}
-}
-
 func FailToRun(err error) {
 	if err != nil {
 		log.Fatal(err)

@@ -84,6 +84,23 @@ Format a file somewhere and save it in a new directory:
 ./nginx-formatter -input=./your-dir-path -output=./your-output-dir
 ```
 
+Format a single file: when `-input` points to a file, only that file is formatted (any file extension is accepted, not just `.conf`). The `-output` value has three meanings in single-file mode:
+
+- empty: overwrite the input file in place
+- an existing directory: write to `<output-dir>/<original-file-name>`
+- otherwise: treat it as a target file path, creating the parent directory if needed
+
+```bash
+# overwrite in place
+./nginx-formatter -input=./nginx.conf
+
+# write into an existing directory
+./nginx-formatter -input=./nginx.conf -output=./dist
+
+# write to a specific file path
+./nginx-formatter -input=./nginx.conf -output=./dist/nginx.formatted.conf
+```
+
 ### WebUI Usage
 
 Start the web interface:

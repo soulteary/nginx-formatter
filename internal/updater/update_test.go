@@ -80,3 +80,90 @@ func TestUpdateConfInDir(t *testing.T) {
 		t.Errorf("unexpected output.\n got: %q\nwant: %q", string(out), expected)
 	}
 }
+
+func TestUpdateConfFile(t *testing.T) {
+	input := "http {\nlocation / {\nreturn 200 \"ok\";\n}\n}"
+	expected := "http {\n    location / {\n        return 200 \"ok\";\n    }\n\n}"
+
+	t.Run("in place overwrite when output empty", func(t *testing.T) {
+		dir := t.TempDir()
+		src := filepath.Join(dir, "nginx.conf")
+		if err := os.WriteFile(src, []byte(input), 0600); err != nil {
+			t.Fatalf("write conf: %v", err)
+		}
+
+		if err := updater.UpdateConfFile(src, "", 4, " ", formatter.Formatter); err != nil {
+			t.Fatalf("update conf file: %v", err)
+		}
+
+		out, err := os.ReadFile(src)
+		if err != nil {
+			t.Fatalf("read output: %v", err)
+		}
+		if string(out) != expected {
+			t.Errorf("unexpected output.\n got: %q\nwant: %q", string(out), expected)
+		}
+	})
+
+	t.Run("output is an existing directory", func(t *testing.T) {
+		dir := t.TempDir()
+		dst := t.TempDir()
+		src := filepath.Join(dir, "site.conf")
+		if err := os.WriteFile(src, []byte(input), 0600); err != nil {
+			t.Fatalf("write conf: %v", err)
+		}
+
+		if err := updater.UpdateConfFile(src, dst, 4, " ", formatter.Formatter); err != nil {
+			t.Fatalf("update conf file: %v", err)
+		}
+
+		out, err := os.ReadFile(filepath.Join(dst, "site.conf"))
+		if err != nil {
+			t.Fatalf("read output: %v", err)
+		}
+		if string(out) != expected {
+			t.Errorf("unexpected output.\n got: %q\nwant: %q", string(out), expected)
+		}
+	})
+
+	t.Run("output is a file path with missing parent dir", func(t *testing.T) {
+		dir := t.TempDir()
+		src := filepath.Join(dir, "site.conf")
+		if err := os.WriteFile(src, []byte(input), 0600); err != nil {
+			t.Fatalf("write conf: %v", err)
+		}
+
+		target := filepath.Join(t.TempDir(), "nested", "deeper", "result.conf")
+		if err := updater.UpdateConfFile(src, target, 4, " ", formatter.Formatter); err != nil {
+			t.Fatalf("update conf file: %v", err)
+		}
+
+		out, err := os.ReadFile(target)
+		if err != nil {
+			t.Fatalf("read output: %v", err)
+		}
+		if string(out) != expected {
+			t.Errorf("unexpected output.\n got: %q\nwant: %q", string(out), expected)
+		}
+	})
+
+	t.Run("non conf suffix is formatted", func(t *testing.T) {
+		dir := t.TempDir()
+		src := filepath.Join(dir, "nginx.txt")
+		if err := os.WriteFile(src, []byte(input), 0600); err != nil {
+			t.Fatalf("write txt: %v", err)
+		}
+
+		if err := updater.UpdateConfFile(src, "", 4, " ", formatter.Formatter); err != nil {
+			t.Fatalf("update conf file: %v", err)
+		}
+
+		out, err := os.ReadFile(src)
+		if err != nil {
+			t.Fatalf("read output: %v", err)
+		}
+		if string(out) != expected {
+			t.Errorf("unexpected output.\n got: %q\nwant: %q", string(out), expected)
+		}
+	})
+}
