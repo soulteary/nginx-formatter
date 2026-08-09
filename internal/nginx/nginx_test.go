@@ -191,8 +191,70 @@ func TestParseUnbalancedBraces(t *testing.T) {
 }
 
 func TestParseMissingSemicolon(t *testing.T) {
-	if _, err := Parse("http {\nlisten 80\n}"); err == nil {
-		t.Error("expected error for missing ';'")
+	// A directive at the end of a block that omits its trailing ';' is now
+	// tolerated: it parses as a Directive and the formatter re-adds the ';'.
+	cfg, err := Parse("http {\nlisten 80\n}")
+	if err != nil {
+		t.Fatalf("expected tolerant parse, got error: %v", err)
+	}
+	if len(cfg.Nodes) != 1 {
+		t.Fatalf("expected 1 top-level node, got %d", len(cfg.Nodes))
+	}
+	blk, ok := cfg.Nodes[0].(*Block)
+	if !ok {
+		t.Fatalf("expected top-level node to be *Block, got %T", cfg.Nodes[0])
+	}
+	if len(blk.Body) != 1 {
+		t.Fatalf("expected 1 node in http block, got %d", len(blk.Body))
+	}
+	dir, ok := blk.Body[0].(*Directive)
+	if !ok {
+		t.Fatalf("expected block body node to be *Directive, got %T", blk.Body[0])
+	}
+	if dir.Name != "listen" || len(dir.Args) != 1 || dir.Args[0] != "80" {
+		t.Errorf("unexpected directive: name=%q args=%v", dir.Name, dir.Args)
+	}
+}
+
+func TestParseTolerantMissingSemicolonReturn(t *testing.T) {
+	src := "location /api/ro {\n" +
+		"    default_type \"application/json\";\n" +
+		"    return ' { \"code\":200 }'\n" +
+		"}"
+
+	cfg, err := Parse(src)
+	if err != nil {
+		t.Fatalf("expected tolerant parse, got error: %v", err)
+	}
+
+	blk, ok := cfg.Nodes[0].(*Block)
+	if !ok {
+		t.Fatalf("expected top-level node to be *Block, got %T", cfg.Nodes[0])
+	}
+	if len(blk.Body) != 2 {
+		t.Fatalf("expected 2 nodes in location block, got %d", len(blk.Body))
+	}
+	ret, ok := blk.Body[1].(*Directive)
+	if !ok {
+		t.Fatalf("expected return node to be *Directive, got %T", blk.Body[1])
+	}
+	if ret.Name != "return" {
+		t.Errorf("expected return directive, got name=%q", ret.Name)
+	}
+
+	out := Format(cfg, 4, " ")
+	if !strings.Contains(out, "return ' { \"code\":200 }';") {
+		t.Errorf("expected formatter to re-add ';' to return directive, got:\n%s", out)
+	}
+
+	// Format must be idempotent: Parse -> Format -> Parse -> Format.
+	cfg2, err := Parse(out)
+	if err != nil {
+		t.Fatalf("re-parse of formatted output failed: %v", err)
+	}
+	out2 := Format(cfg2, 4, " ")
+	if out != out2 {
+		t.Errorf("format not idempotent.\n first: %q\nsecond: %q", out, out2)
 	}
 }
 

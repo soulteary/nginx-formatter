@@ -176,6 +176,14 @@ func (p *Parser) parseStatement() (Node, error) {
 		return nil, fmt.Errorf("line %d: missing ';' after directive %q", p.tok.Line, name)
 
 	case TokenRBrace, TokenEOF:
+		// A directive at the end of a block or file that omits its trailing
+		// ';'. Tolerate it: return the collected directive without consuming
+		// the '}'/EOF so the enclosing parseNodes can close the block or end.
+		// The printer re-adds the ';'. Keep the error when there is no real
+		// directive (name == "") to avoid swallowing genuine syntax errors.
+		if name != "" {
+			return &Directive{Name: name, Args: args}, nil
+		}
 		return nil, fmt.Errorf("line %d: missing ';' after directive %q", startLine, name)
 
 	default:
