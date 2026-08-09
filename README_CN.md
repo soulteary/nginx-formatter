@@ -134,6 +134,10 @@ Usage of ./nginx-formatter:
     	Enable WebUI, defualt: false
 ```
 
+## 参与贡献
+
+欢迎参与贡献！请先阅读[贡献指南](CONTRIBUTING_CN.md)，并遵守[行为准则](CODE_OF_CONDUCT.md)。
+
 ## 鸣谢
 
 格式化组件

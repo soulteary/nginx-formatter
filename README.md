@@ -134,6 +134,10 @@ Usage of ./nginx-formatter:
     	Enable WebUI, defualt: false
 ```
 
+## Contributing
+
+Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md) to get started, and follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Credits
 
 Formatter Components
