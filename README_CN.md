@@ -32,6 +32,28 @@ docker pull soulteary/nginx-formatter:latest
 docker pull soulteary/nginx-formatter:v2.0.0
 ```
 
+### Homebrew 安装
+
+在 macOS / Linux 上，你可以通过 [Homebrew](https://github.com/soulteary/homebrew-tap) 安装：
+
+```bash
+brew tap soulteary/tap
+brew install soulteary/tap/nginx-formatter
+```
+
+安装完成后，`nginx-formatter` 命令会全局可用，可以直接运行（无需下文中的 `./` 前缀）：
+
+```bash
+nginx-formatter -web
+```
+
+后续升级或卸载：
+
+```bash
+brew upgrade soulteary/tap/nginx-formatter
+brew uninstall nginx-formatter
+```
+
 ## 程序使用
 
 使用默认参数格式化当前目录中的所有的 Nginx 配置文件：

@@ -32,6 +32,28 @@ docker pull soulteary/nginx-formatter:latest
 docker pull soulteary/nginx-formatter:v2.0.0
 ```
 
+### Homebrew
+
+On macOS / Linux you can install it via [Homebrew](https://github.com/soulteary/homebrew-tap):
+
+```bash
+brew tap soulteary/tap
+brew install soulteary/tap/nginx-formatter
+```
+
+After installation the `nginx-formatter` command is available globally, so you can run it directly (without the `./` prefix used below):
+
+```bash
+nginx-formatter -web
+```
+
+To upgrade or uninstall later:
+
+```bash
+brew upgrade soulteary/tap/nginx-formatter
+brew uninstall nginx-formatter
+```
+
 ## Usage
 
 Use default parameters to format all configuration files in the current directory:
