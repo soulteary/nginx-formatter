@@ -8,14 +8,14 @@ import (
 	"strings"
 )
 
-func EncodeEscapeChars(s string) string {
-	return strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(s, `\t`, `【&】t`), `\s`, `【&】s`), `\r`, `【&】r`), `\n`, `【&】n`)
-}
-
-func DecodeEscapeChars(s string) string {
-	return strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(s, `【&】t`, `\t`), `【&】s`, `\s`), `【&】r`, `\r`), `【&】n`, `\n`)
-}
-
+// FixReturn normalizes "return" directives so a bare argument is wrapped in
+// double quotes, matching the historical updater behavior. Examples:
+//
+//	return 200 $content;  -> return 200 "$content";
+//	return 200 "ok";      -> return 200 "ok"; (unchanged)
+//	return 200;           -> return 200; (unchanged)
+//	return BACKEND;       -> return BACKEND; (unchanged)
+//	return "ok";          -> return "ok"; (unchanged)
 func FixReturn(s string) string {
 
 	var scene1 = regexp.MustCompile(`return\s+(\d+)\s+(\S+)\s*;`)
@@ -63,11 +63,6 @@ func FixReturn(s string) string {
 	return s
 }
 
-func FixVars(s string) string {
-	s = regexp.MustCompile(`(\$)(\{\S+?\})`).ReplaceAllString(s, "[dollar]$2")
-	return s
-}
-
 func ScanFiles(rootDir string) ([]string, error) {
 	if rootDir == "" {
 		return nil, fmt.Errorf("scandir is empty")
@@ -111,7 +106,7 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 			return err
 		}
 
-		modifiedData, err := fn(FixVars(FixReturn(EncodeEscapeChars(string(buf)))), indent, indentChar)
+		modifiedData, err := fn(FixReturn(string(buf)), indent, indentChar)
 		if err != nil {
 			fmt.Printf("Formatter Nginx Conf %s failed, can not format the file\n", err)
 			return err
@@ -131,7 +126,7 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 			return err
 		}
 
-		err = os.WriteFile(output, []byte(DecodeEscapeChars(modifiedData)), 0600)
+		err = os.WriteFile(output, []byte(modifiedData), 0600)
 		if err != nil {
 			fmt.Printf("Formatter Nginx Conf %s failed, can not save the file\n", err)
 			return err
