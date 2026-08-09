@@ -50,7 +50,7 @@ brew install soulteary/tap/nginx-formatter
 After installation the `nginx-formatter` command is available globally, so you can run it directly (without the `./` prefix used below):
 
 ```bash
-nginx-formatter -web
+nginx-formatter serve
 ```
 
 To upgrade or uninstall later:
@@ -62,18 +62,20 @@ brew uninstall nginx-formatter
 
 ## Usage
 
+Since v2.2.0 the CLI uses semantic subcommands (`format` / `serve` / `version`) with modern `--long`/`-short` flags. The old single-dash long flags (`-input`, `-output`, `-indent`, `-char`, `-web`, `-port`) remain fully supported for backward compatibility, so existing scripts and Docker commands keep working.
+
 Use default parameters to format all configuration files in the current directory:
 
 ```bash
-./nginx-formatter
+./nginx-formatter format
 ```
 
 ### Common Usage (CLI & WebUI)
 
-Use different indentation symbols (You can use spaces, tabs, ` `, `\s`, `\t`) and indentation amounts:
+Use different indentation symbols (you can use spaces, tabs, `space`, `tab`, `\s`, `\t`) and indentation amounts:
 
 ```bash
-./nginx-formatter -indent=4 -char=" "
+./nginx-formatter format -n 4 -c space
 ```
 
 ### CLI Usage
@@ -81,16 +83,16 @@ Use different indentation symbols (You can use spaces, tabs, ` `, `\s`, `\t`) an
 Format the configuration file in the specified directory:
 
 ```bash
-./nginx-formatter -input=./your-dir-path
+./nginx-formatter format -i ./your-dir-path
 ```
 
-Format a file somewhere and save it in a new directory:
+Format a directory and save it in a new directory:
 
 ```bash
-./nginx-formatter -input=./your-dir-path -output=./your-output-dir
+./nginx-formatter format -i ./your-dir-path -o ./your-output-dir
 ```
 
-Format a single file: when `-input` points to a file, only that file is formatted (any file extension is accepted, not just `.conf`). The `-output` value has three meanings in single-file mode:
+Format a single file: when `--input` points to a file, only that file is formatted (any file extension is accepted, not just `.conf`). The `--output` value has three meanings in single-file mode:
 
 - empty: overwrite the input file in place
 - an existing directory: write to `<output-dir>/<original-file-name>`
@@ -98,13 +100,13 @@ Format a single file: when `-input` points to a file, only that file is formatte
 
 ```bash
 # overwrite in place
-./nginx-formatter -input=./nginx.conf
+./nginx-formatter format -i ./nginx.conf
 
 # write into an existing directory
-./nginx-formatter -input=./nginx.conf -output=./dist
+./nginx-formatter format -i ./nginx.conf -o ./dist
 
 # write to a specific file path
-./nginx-formatter -input=./nginx.conf -output=./dist/nginx.formatted.conf
+./nginx-formatter format -i ./nginx.conf -o ./dist/nginx.formatted.conf
 ```
 
 ### WebUI Usage
@@ -112,12 +114,41 @@ Format a single file: when `-input` points to a file, only that file is formatte
 Start the web interface:
 
 ```bash
-./nginx-formatter -web
+./nginx-formatter serve
 ```
 
 specified the port:
 
 ```bash
+./nginx-formatter serve -p 8123
+```
+
+`--indent` and `--char` set the default indentation the WebUI applies when formatting:
+
+```bash
+./nginx-formatter serve -p 8123 -n 4 -c space
+```
+
+### Version
+
+Print the version:
+
+```bash
+./nginx-formatter version
+```
+
+### Backward compatibility (legacy flags)
+
+Old-style single-dash long flags still work exactly as before:
+
+```bash
+# Format a directory (legacy)
+./nginx-formatter -input=./your-dir-path -output=./your-output-dir -indent=4 -char=" "
+
+# Format a single file (legacy)
+./nginx-formatter -input=./nginx.conf
+
+# Start the WebUI (legacy)
 ./nginx-formatter -web -port=8123
 ```
 
@@ -126,35 +157,57 @@ specified the port:
 There is no difference between using parameters in Docker and the above, for example, we start a Web UI formatting tool service in Docker:
 
 ```bash
-docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:v2.1.0 -web
+# new subcommand style
+docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:latest serve
+
+# legacy style still works
+docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:latest -web
 ```
 
 If you want to format the configuration of the current directory, you can use the program in Docker with a command similar to the following:
 
 ```bash
-docker run --rm -it -v `pwd`:/app soulteary/nginx-formatter:v2.1.0 -input=/app
+# new subcommand style
+docker run --rm -it -v `pwd`:/app soulteary/nginx-formatter:latest format -i /app
+
+# legacy style still works
+docker run --rm -it -v `pwd`:/app soulteary/nginx-formatter:latest -input=/app
 ```
 
 ## Full parameters supported
 
-List of parameters supported:
+Run `nginx-formatter --help` to see the available commands, or `nginx-formatter <command> --help` for a command's flags and examples:
 
 ```bash
-Nginx Formatter
+Usage:
+  nginx-formatter [flags]
+  nginx-formatter [command]
 
-Usage of ./nginx-formatter:
-  -char  
-    	Indent char, defualt:   (default " ")
-  -indent int
-    	Indent size, defualt: 2 (default 2)
-  -input string
-    	Input directory
-  -output string
-    	Output directory
-  -port 8080
-    	WebUI Port, defualt: 8080 (default 8080)
-  -web false
-    	Enable WebUI, defualt: false
+Available Commands:
+  format      Format Nginx configuration files in a directory or a single file
+  serve       Start the browser-based WebUI
+  version     Print the version number
+
+Flags:
+  -h, --help      help for nginx-formatter
+  -v, --version   version for nginx-formatter
+```
+
+`format` flags:
+
+```bash
+  -c, --char string     Indent char (space/tab/\s/\t) (default " ")
+  -n, --indent int      Indent size (default 2)
+  -i, --input string    Input directory or file (default: current directory)
+  -o, --output string   Output directory or file path
+```
+
+`serve` flags:
+
+```bash
+  -c, --char string   Default indent char the WebUI applies (space/tab/\s/\t) (default " ")
+  -n, --indent int    Default indent size the WebUI applies (default 2)
+  -p, --port int      WebUI port (default 8080)
 ```
 
 ## Contributing

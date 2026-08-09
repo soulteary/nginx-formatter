@@ -50,7 +50,7 @@ brew install soulteary/tap/nginx-formatter
 安装完成后，`nginx-formatter` 命令会全局可用，可以直接运行（无需下文中的 `./` 前缀）：
 
 ```bash
-nginx-formatter -web
+nginx-formatter serve
 ```
 
 后续升级或卸载：
@@ -62,18 +62,20 @@ brew uninstall nginx-formatter
 
 ## 程序使用
 
+从 v2.2.0 起，命令行改为语义化子命令（`format` / `serve` / `version`），并采用现代的 `--long`/`-short` 参数风格。旧版的单横线长参数（`-input`、`-output`、`-indent`、`-char`、`-web`、`-port`）依然完全兼容，因此现有脚本与 Docker 命令无需改动即可继续使用。
+
 使用默认参数格式化当前目录中的所有的 Nginx 配置文件：
 
 ```bash
-./nginx-formatter
+./nginx-formatter format
 ```
 
 ### 通用玩法 (CLI & WebUI)
 
-使用不同的缩进符号（可以使用空格、制表符、`\s`、`\t`、` `）和缩进量：
+使用不同的缩进符号（可以使用空格、制表符、`space`、`tab`、`\s`、`\t`）和缩进量：
 
 ```bash
-./nginx-formatter -indent=4 -char=" "
+./nginx-formatter format -n 4 -c space
 ```
 
 ### 命令行用法（CLI）
@@ -81,16 +83,16 @@ brew uninstall nginx-formatter
 格式化指定目录中的配置文件：
 
 ```bash
-./nginx-formatter -input=./your-dir-path
+./nginx-formatter format -i ./your-dir-path
 ```
 
 在新目录中保存格式化后的配置文件：
 
 ```bash
-./nginx-formatter -input=./your-dir-path -output=./your-output-dir
+./nginx-formatter format -i ./your-dir-path -o ./your-output-dir
 ```
 
-格式化单个文件：当 `-input` 指向文件时，仅格式化该文件（不再限制 `.conf` 后缀，任意后缀均可）。此时 `-output` 有三种语义：
+格式化单个文件：当 `--input` 指向文件时，仅格式化该文件（不再限制 `.conf` 后缀，任意后缀均可）。此时 `--output` 有三种语义：
 
 - 为空：原地覆盖输入文件
 - 为已存在的目录：写入 `<输出目录>/<原文件名>`
@@ -98,13 +100,13 @@ brew uninstall nginx-formatter
 
 ```bash
 # 原地覆盖
-./nginx-formatter -input=./nginx.conf
+./nginx-formatter format -i ./nginx.conf
 
 # 写入已存在的目录
-./nginx-formatter -input=./nginx.conf -output=./dist
+./nginx-formatter format -i ./nginx.conf -o ./dist
 
 # 写入指定文件路径
-./nginx-formatter -input=./nginx.conf -output=./dist/nginx.formatted.conf
+./nginx-formatter format -i ./nginx.conf -o ./dist/nginx.formatted.conf
 ```
 
 ### WebUI 用法
@@ -112,12 +114,41 @@ brew uninstall nginx-formatter
 启动 WebUI 界面：
 
 ```bash
-./nginx-formatter -web
+./nginx-formatter serve
 ```
 
 指定服务端口：
 
 ```bash
+./nginx-formatter serve -p 8123
+```
+
+`--indent` 与 `--char` 用于设置 WebUI 格式化时采用的默认缩进：
+
+```bash
+./nginx-formatter serve -p 8123 -n 4 -c space
+```
+
+### 查看版本
+
+打印版本号：
+
+```bash
+./nginx-formatter version
+```
+
+### 向后兼容（旧参数）
+
+旧式的单横线长参数依然可以按原有方式使用：
+
+```bash
+# 格式化目录（旧参数）
+./nginx-formatter -input=./your-dir-path -output=./your-output-dir -indent=4 -char=" "
+
+# 格式化单个文件（旧参数）
+./nginx-formatter -input=./nginx.conf
+
+# 启动 WebUI（旧参数）
 ./nginx-formatter -web -port=8123
 ```
 
@@ -126,35 +157,59 @@ brew uninstall nginx-formatter
 在 Docker 中使用和上面没有什么区别，比如我们启动一个在 Docker 中的 Web UI 格式化工具服务：
 
 ```bash
-docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:v2.1.0 -web
+# 新的子命令写法
+docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:latest serve
+
+# 旧参数写法依然可用
+docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:latest -web
 ```
 
 
 如果你希望格式化当前目录的配置，可以通过类似下面的命令，来使用 Docker 中的程序：
 
 ```bash
-docker run --rm -it -v `pwd`:/app soulteary/nginx-formatter:v2.1.0 -input=/app
+# 新的子命令写法
+docker run --rm -it -v `pwd`:/app soulteary/nginx-formatter:latest format -i /app
+
+# 旧参数写法依然可用
+docker run --rm -it -v `pwd`:/app soulteary/nginx-formatter:latest -input=/app
 ```
 
 
 ## 支持的完整参数列表
 
-```bash
-Nginx Formatter
+运行 `nginx-formatter --help` 查看可用命令，或运行 `nginx-formatter <命令> --help` 查看某个命令的参数与示例：
 
-Usage of ./nginx-formatter:
-  -char  
-    	Indent char, defualt:   (default " ")
-  -indent int
-    	Indent size, defualt: 2 (default 2)
-  -input string
-    	Input directory
-  -output string
-    	Output directory
-  -port 8080
-    	WebUI Port, defualt: 8080 (default 8080)
-  -web false
-    	Enable WebUI, defualt: false
+```bash
+Usage:
+  nginx-formatter [flags]
+  nginx-formatter [command]
+
+Available Commands:
+  format      Format Nginx configuration files in a directory or a single file
+  serve       Start the browser-based WebUI
+  version     Print the version number
+
+Flags:
+  -h, --help      help for nginx-formatter
+  -v, --version   version for nginx-formatter
+```
+
+`format` 参数：
+
+```bash
+  -c, --char string     Indent char (space/tab/\s/\t) (default " ")
+  -n, --indent int      Indent size (default 2)
+  -i, --input string    Input directory or file (default: current directory)
+  -o, --output string   Output directory or file path
+```
+
+`serve` 参数：
+
+```bash
+  -c, --char string   Default indent char the WebUI applies (space/tab/\s/\t) (default " ")
+  -n, --indent int    Default indent size the WebUI applies (default 2)
+  -p, --port int      WebUI port (default 8080)
 ```
 
 ## 参与贡献
