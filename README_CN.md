@@ -84,6 +84,23 @@ brew uninstall nginx-formatter
 ./nginx-formatter -input=./your-dir-path -output=./your-output-dir
 ```
 
+格式化单个文件：当 `-input` 指向文件时，仅格式化该文件（不再限制 `.conf` 后缀，任意后缀均可）。此时 `-output` 有三种语义：
+
+- 为空：原地覆盖输入文件
+- 为已存在的目录：写入 `<输出目录>/<原文件名>`
+- 其他情况：视为目标文件路径，必要时自动创建其父目录
+
+```bash
+# 原地覆盖
+./nginx-formatter -input=./nginx.conf
+
+# 写入已存在的目录
+./nginx-formatter -input=./nginx.conf -output=./dist
+
+# 写入指定文件路径
+./nginx-formatter -input=./nginx.conf -output=./dist/nginx.formatted.conf
+```
+
 ### WebUI 用法
 
 启动 WebUI 界面：
