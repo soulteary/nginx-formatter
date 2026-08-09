@@ -27,7 +27,7 @@ func TestScanFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scan files: %v", err)
 	}
-	if len(files) != 1 || filepath.Clean(files[0]) != filepath.Clean(confPath) {
+	if len(files) != 1 || filepath.Clean(files[0]) != "nginx.conf" {
 		t.Errorf("unexpected scan result: %v", files)
 	}
 }

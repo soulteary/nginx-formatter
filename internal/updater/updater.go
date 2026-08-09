@@ -2,6 +2,7 @@ package updater
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -67,20 +68,27 @@ func ScanFiles(rootDir string) ([]string, error) {
 	if rootDir == "" {
 		return nil, fmt.Errorf("scandir is empty")
 	}
+	root, err := os.OpenRoot(rootDir)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = root.Close() }()
+
 	var files []string
-	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
+	err = fs.WalkDir(root.FS(), ".", func(rel string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
 			return nil
 		}
-
-		file := filepath.Clean(path)
-		if strings.HasPrefix(file, rootDir) && strings.HasSuffix(file, ".conf") {
-			_, err := os.ReadFile(path)
-			if err != nil {
-				return err
-			}
-			files = append(files, path)
+		if !strings.HasSuffix(rel, ".conf") {
+			return nil
 		}
+		if _, err := root.ReadFile(rel); err != nil {
+			return err
+		}
+		files = append(files, rel)
 		return nil
 	})
 	if err != nil {
@@ -94,13 +102,25 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 	if err != nil {
 		return err
 	}
-	for _, src := range files {
-		file := filepath.Clean(src)
-		if !strings.HasPrefix(file, rootDir) {
-			continue
-		}
 
-		buf, err := os.ReadFile(file)
+	inRoot, err := os.OpenRoot(rootDir)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = inRoot.Close() }()
+
+	if err := os.MkdirAll(outputDir, 0700); err != nil {
+		fmt.Printf("Formatter Nginx Conf %s failed, can not prepare the save dir\n", err)
+		return err
+	}
+	outRoot, err := os.OpenRoot(outputDir)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = outRoot.Close() }()
+
+	for _, rel := range files {
+		buf, err := inRoot.ReadFile(rel)
 		if err != nil {
 			fmt.Printf("Formatter Nginx Conf %s failed, can not open the file\n", err)
 			return err
@@ -112,32 +132,19 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 			return err
 		}
 
-		output := ""
-		relPath, err := filepath.Rel(rootDir, file)
-		if err != nil {
-			output = filepath.Join(outputDir, file)
-		} else {
-			output = filepath.Join(outputDir, relPath)
+		if dir := filepath.Dir(rel); dir != "." {
+			if err := outRoot.MkdirAll(dir, 0700); err != nil {
+				fmt.Printf("Formatter Nginx Conf %s failed, can not prepare the save dir\n", err)
+				return err
+			}
 		}
 
-		err = os.MkdirAll(filepath.Dir(output), 0700)
-		if err != nil {
-			fmt.Printf("Formatter Nginx Conf %s failed, can not prepare the save dir\n", err)
-			return err
-		}
-
-		err = os.WriteFile(output, []byte(modifiedData), 0600)
-		if err != nil {
+		if err := outRoot.WriteFile(rel, []byte(modifiedData), 0600); err != nil {
 			fmt.Printf("Formatter Nginx Conf %s failed, can not save the file\n", err)
 			return err
 		}
 
-		relPath, err = filepath.Rel(rootDir, output)
-		if err != nil {
-			fmt.Printf("Formatter Nginx Conf %s Successed\n", output)
-		} else {
-			fmt.Printf("Formatter Nginx Conf %s Successed\n", relPath)
-		}
+		fmt.Printf("Formatter Nginx Conf %s Successed\n", rel)
 	}
 	return nil
 }
