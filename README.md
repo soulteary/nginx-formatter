@@ -12,6 +12,11 @@ Nginx configuration formatter ~10MB size, support CLI, WebUI, x86, ARM, Linux, m
 
 <img src=".github/preview.png">
 
+> **What's new in v2.2.0**
+>
+> - Redesigned the CLI with semantic subcommands (`format` / `serve` / `version`) built on [Cobra](https://github.com/spf13/cobra), with modern `--long`/`-short` flags and per-command `--help`.
+> - Full backward compatibility: the legacy single-dash long flags (`-input`, `-output`, `-indent`, `-char`, `-web`, `-port`) still work, so existing scripts and Docker commands keep running unchanged.
+>
 > **What's new in v2.1.0**
 >
 > - Support formatting a single file: when `-input` points to a file, only that file is formatted (any extension is accepted, not just `.conf`), and `-output` can overwrite in place, target a directory, or write to a specific file path.
@@ -35,7 +40,7 @@ If you use docker, you can use the following command ([DockerHub](https://hub.do
 
 ```bash
 docker pull soulteary/nginx-formatter:latest
-docker pull soulteary/nginx-formatter:v2.1.0
+docker pull soulteary/nginx-formatter:v2.2.0
 ```
 
 ### Homebrew
