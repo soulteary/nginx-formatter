@@ -12,6 +12,12 @@
 
 <img src=".github/preview.png">
 
+> **v2.1.0 更新说明**
+>
+> - 支持格式化单个文件：当 `-input` 指向文件时，仅格式化该文件（不再限制 `.conf` 后缀，任意后缀均可），`-output` 可原地覆盖、写入目录或写入指定文件路径。
+> - 新增 macOS / Linux 下的 [Homebrew](https://github.com/soulteary/homebrew-tap) 安装支持。
+> - 新增[贡献指南](CONTRIBUTING_CN.md)与[行为准则](CODE_OF_CONDUCT.md)。
+>
 > **v2.0.0 更新说明**
 >
 > - 使用原生 Go AST 的 Nginx 解析器重写了格式化引擎，替换了此前基于 `goja` / `beautifier.js` 的运行时。不再依赖 JavaScript 运行时，运行更快、体积更小。
@@ -29,7 +35,7 @@
 
 ```bash
 docker pull soulteary/nginx-formatter:latest
-docker pull soulteary/nginx-formatter:v2.0.0
+docker pull soulteary/nginx-formatter:v2.1.0
 ```
 
 ### Homebrew 安装
@@ -120,14 +126,14 @@ brew uninstall nginx-formatter
 在 Docker 中使用和上面没有什么区别，比如我们启动一个在 Docker 中的 Web UI 格式化工具服务：
 
 ```bash
-docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:v2.0.0 -web
+docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:v2.1.0 -web
 ```
 
 
 如果你希望格式化当前目录的配置，可以通过类似下面的命令，来使用 Docker 中的程序：
 
 ```bash
-docker run --rm -it -v `pwd`:/app soulteary/nginx-formatter:v2.0.0 -input=/app
+docker run --rm -it -v `pwd`:/app soulteary/nginx-formatter:v2.1.0 -input=/app
 ```
 
 

@@ -12,6 +12,12 @@ Nginx configuration formatter ~10MB size, support CLI, WebUI, x86, ARM, Linux, m
 
 <img src=".github/preview.png">
 
+> **What's new in v2.1.0**
+>
+> - Support formatting a single file: when `-input` points to a file, only that file is formatted (any extension is accepted, not just `.conf`), and `-output` can overwrite in place, target a directory, or write to a specific file path.
+> - Added [Homebrew](https://github.com/soulteary/homebrew-tap) installation support for macOS / Linux.
+> - Added a [Contributing Guide](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md).
+>
 > **What's new in v2.0.0**
 >
 > - Rewrote the formatting engine with a native Go AST-based nginx parser, replacing the previous `goja` / `beautifier.js` runtime. No JavaScript runtime dependency anymore, faster and lighter.
@@ -29,7 +35,7 @@ If you use docker, you can use the following command ([DockerHub](https://hub.do
 
 ```bash
 docker pull soulteary/nginx-formatter:latest
-docker pull soulteary/nginx-formatter:v2.0.0
+docker pull soulteary/nginx-formatter:v2.1.0
 ```
 
 ### Homebrew
@@ -120,13 +126,13 @@ specified the port:
 There is no difference between using parameters in Docker and the above, for example, we start a Web UI formatting tool service in Docker:
 
 ```bash
-docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:v2.0.0 -web
+docker run --rm -it -p 8080:8080 soulteary/nginx-formatter:v2.1.0 -web
 ```
 
 If you want to format the configuration of the current directory, you can use the program in Docker with a command similar to the following:
 
 ```bash
-docker run --rm -it -v `pwd`:/app soulteary/nginx-formatter:v2.0.0 -input=/app
+docker run --rm -it -v `pwd`:/app soulteary/nginx-formatter:v2.1.0 -input=/app
 ```
 
 ## Full parameters supported
