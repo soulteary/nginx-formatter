@@ -124,7 +124,7 @@ Runtime dependent Components
 
 Web Components
 
-- Gin is a HTTP web framework written in Go (Golang), under [MIT license].
-  - https://github.com/gin-gonic/gin
+- Fiber is an Express inspired web framework written in Go (Golang), under [MIT license].
+  - https://github.com/gofiber/fiber
 - Code Mirror, in-browser code editor, under [MIT license].
   - https://github.com/codemirror/codemirror5

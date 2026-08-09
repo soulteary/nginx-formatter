@@ -123,7 +123,7 @@ JavaScript 运行时组件：
 
 网络组件
 
-- Gin，HTTP Web 框架，在 [MIT 许可]下发布。
-  - https://github.com/gin-gonic/gin
+- Fiber，受 Express 启发的 Web 框架，在 [MIT 许可]下发布。
+  - https://github.com/gofiber/fiber
 - Code Mirror, 浏览器内的编辑器，在 [MIT 许可]下发布。
   - https://github.com/codemirror/codemirror5

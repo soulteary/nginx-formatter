@@ -4,30 +4,32 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
+	"github.com/gofiber/fiber/v2"
 )
 
 func Launch(port int, indent int, char string, fn func(s string, indent int, char string) (string, error)) error {
-	gin.SetMode(gin.ReleaseMode)
+	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 
-	router := gin.Default()
-	router.GET("/", func(c *gin.Context) {
-		c.Data(http.StatusOK, "text/html", []byte(getDocCache()))
+	app.Get("/", func(c *fiber.Ctx) error {
+		c.Type("html")
+		return c.Send([]byte(getDocCache()))
 	})
 
-	router.POST("/format", func(c *gin.Context) {
-		code := c.PostForm("code")
+	app.Post("/format", func(c *fiber.Ctx) error {
+		code := c.FormValue("code")
 		updateDocCache(code, indent, char, fn)
-		c.Redirect(http.StatusFound, "/")
+		return c.Redirect("/", http.StatusFound)
 	})
 
-	router.GET("/base.css", func(c *gin.Context) {
-		c.Data(http.StatusOK, "text/css", CACHE_STYLESHEET)
+	app.Get("/base.css", func(c *fiber.Ctx) error {
+		c.Type("css")
+		return c.Send(CACHE_STYLESHEET)
 	})
 
-	router.GET("/base.js", func(c *gin.Context) {
-		c.Data(http.StatusOK, "text/javascript", CACHE_SCRIPT)
+	app.Get("/base.js", func(c *fiber.Ctx) error {
+		c.Type("js")
+		return c.Send(CACHE_SCRIPT)
 	})
 
-	return router.Run(fmt.Sprintf(":%d", port))
+	return app.Listen(fmt.Sprintf(":%d", port))
 }
