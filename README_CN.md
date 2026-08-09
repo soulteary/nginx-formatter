@@ -12,6 +12,11 @@
 
 <img src=".github/preview.png">
 
+> **v2.2.0 更新说明**
+>
+> - 基于 [Cobra](https://github.com/spf13/cobra) 重新设计命令行，改为语义化子命令（`format` / `serve` / `version`），采用现代的 `--long`/`-short` 参数风格，并为每个命令提供独立的 `--help`。
+> - 完全向后兼容：旧版的单横线长参数（`-input`、`-output`、`-indent`、`-char`、`-web`、`-port`）依然可用，现有脚本与 Docker 命令无需改动即可继续运行。
+>
 > **v2.1.0 更新说明**
 >
 > - 支持格式化单个文件：当 `-input` 指向文件时，仅格式化该文件（不再限制 `.conf` 后缀，任意后缀均可），`-output` 可原地覆盖、写入目录或写入指定文件路径。
@@ -35,7 +40,7 @@
 
 ```bash
 docker pull soulteary/nginx-formatter:latest
-docker pull soulteary/nginx-formatter:v2.1.0
+docker pull soulteary/nginx-formatter:v2.2.0
 ```
 
 ### Homebrew 安装
