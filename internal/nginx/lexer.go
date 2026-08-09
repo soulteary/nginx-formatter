@@ -297,6 +297,16 @@ func (l *Lexer) lexIdent(startLine int) Token {
 			}
 			continue
 		}
+		// A backslash escapes the next character (e.g. "\ " a literal space in a
+		// regex), keeping it part of the current bare word rather than a token
+		// boundary. Kept verbatim so the escape is preserved on output.
+		if c == '\\' {
+			sb = append(sb, l.next()) // backslash
+			if l.peek() != 0 {
+				sb = append(sb, l.next()) // escaped char, kept verbatim
+			}
+			continue
+		}
 		if isDelimiter(c) {
 			break
 		}

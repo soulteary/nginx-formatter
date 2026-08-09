@@ -96,6 +96,41 @@ func TestLexerEscapeInString(t *testing.T) {
 	}
 }
 
+func TestLexerEscapedSpaceInBareWord(t *testing.T) {
+	// A backslash-escaped space inside a bare word (e.g. an nginx regex) must
+	// not split the word into two idents. The escape is kept verbatim.
+	toks := tokenTypes(`(Edg|Sogou\ web|Curl)`)
+	if toks[0].Type != TokenIdent || toks[0].Value != `(Edg|Sogou\ web|Curl)` {
+		t.Errorf("escaped space in bare word not preserved: %+v", toks[0])
+	}
+	if toks[1].Type != TokenEOF {
+		t.Errorf("expected single ident then EOF, got %+v", toks[1])
+	}
+}
+
+func TestFormatEscapedSpaceInRegexArg(t *testing.T) {
+	src := "server {\n" +
+		"if ($http_user_agent ~ (Edg|Sogou\\ web|Semrushbot|Scrapy|Curl)) { return 403; }\n" +
+		"}"
+	cfg, err := Parse(src)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	first := Format(cfg, 4, " ")
+	if !strings.Contains(first, `(Edg|Sogou\ web|Semrushbot|Scrapy|Curl)`) {
+		t.Errorf("escaped space in regex arg not kept intact:\n%s", first)
+	}
+
+	cfg2, err := Parse(first)
+	if err != nil {
+		t.Fatalf("re-parse error: %v\noutput was:\n%s", err, first)
+	}
+	second := Format(cfg2, 4, " ")
+	if first != second {
+		t.Errorf("format not idempotent.\nfirst:\n%s\nsecond:\n%s", first, second)
+	}
+}
+
 func TestParseNestedBlocks(t *testing.T) {
 	cfg, err := Parse("http {\nserver {\nlisten 80;\n}\n}")
 	if err != nil {
