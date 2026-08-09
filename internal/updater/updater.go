@@ -123,7 +123,10 @@ func resolveTarget(inputFile string, output string) (string, error) {
 // UpdateConfFile formats a single file. Unlike UpdateConfInDir it does not
 // filter by the .conf suffix, so any file can be formatted.
 func UpdateConfFile(inputFile string, output string, indent int, indentChar string, fn func(s string, indent int, char string) (string, error)) error {
-	buf, err := os.ReadFile(inputFile)
+	// inputFile is provided directly by the user running this local CLI tool via
+	// the --input flag, so reading it is the intended behavior rather than an
+	// untrusted-path file-inclusion risk. Suppress gosec G304 accordingly.
+	buf, err := os.ReadFile(inputFile) // #nosec G304
 	if err != nil {
 		fmt.Printf("Formatter Nginx Conf %s failed, can not open the file\n", err)
 		return err
