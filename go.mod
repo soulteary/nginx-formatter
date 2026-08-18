@@ -3,7 +3,7 @@ module github.com/soulteary/nginx-formatter
 go 1.26.0
 
 require (
-	github.com/gofiber/fiber/v2 v2.52.14
+	github.com/gofiber/fiber/v2 v2.52.15
 	github.com/spf13/cobra v1.10.2
 )
 
