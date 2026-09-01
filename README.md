@@ -75,6 +75,34 @@ brew uninstall nginx-formatter
 
 Since v2.2.0 the CLI uses semantic subcommands (`format` / `serve` / `version`) with modern `--long`/`-short` flags. The old single-dash long flags (`-input`, `-output`, `-indent`, `-char`, `-web`, `-port`) remain fully supported for backward compatibility, so existing scripts and Docker commands keep working.
 
+### GitHub Actions
+
+To check Nginx configuration formatting automatically in pull requests, use [soulteary/nginx-format-action](https://github.com/soulteary/nginx-format-action). Create `.github/workflows/nginx-format.yml`:
+
+```yaml
+name: Nginx format
+
+on:
+  pull_request:
+    paths:
+      - "**/*.conf"
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: soulteary/nginx-format-action@v1
+        with:
+          path: .
+          mode: check
+```
+
+See the [Nginx Format Action documentation](https://github.com/soulteary/nginx-format-action#readme) for write mode, indentation settings, version pinning, and more examples.
+
 Use default parameters to format all configuration files in the current directory:
 
 ```bash
