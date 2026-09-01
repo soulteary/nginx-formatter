@@ -12,6 +12,12 @@ Nginx configuration formatter ~10MB size, support CLI, WebUI, x86, ARM, Linux, m
 
 <img src=".github/preview.png">
 
+> **What's new in [v2.3.0](https://github.com/soulteary/nginx-formatter/releases/tag/v2.3.0)**
+>
+> - Updated the automated Go Report Card workflow to use `soulteary/goreportcard-action` v1.1.0.
+> - Hardened the Codecov workflow by restricting `GITHUB_TOKEN` to read-only repository contents.
+> - Published checksums and prebuilt binaries for macOS and Linux on x86, x86-64, ARM64, ARMv6, and ARMv7.
+>
 > **What's new in v2.2.0**
 >
 > - Redesigned the CLI with semantic subcommands (`format` / `serve` / `version`) built on [Cobra](https://github.com/spf13/cobra), with modern `--long`/`-short` flags and per-command `--help`.
@@ -40,7 +46,7 @@ If you use docker, you can use the following command ([DockerHub](https://hub.do
 
 ```bash
 docker pull soulteary/nginx-formatter:latest
-docker pull soulteary/nginx-formatter:v2.2.0
+docker pull soulteary/nginx-formatter:v2.3.0
 ```
 
 ### Homebrew
