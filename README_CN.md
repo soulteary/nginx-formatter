@@ -75,6 +75,34 @@ brew uninstall nginx-formatter
 
 从 v2.2.0 起，命令行改为语义化子命令（`format` / `serve` / `version`），并采用现代的 `--long`/`-short` 参数风格。旧版的单横线长参数（`-input`、`-output`、`-indent`、`-char`、`-web`、`-port`）依然完全兼容，因此现有脚本与 Docker 命令无需改动即可继续使用。
 
+### GitHub Actions
+
+如需在 Pull Request 中自动检查 Nginx 配置格式，可以使用 [soulteary/nginx-format-action](https://github.com/soulteary/nginx-format-action)。创建 `.github/workflows/nginx-format.yml`：
+
+```yaml
+name: Nginx format
+
+on:
+  pull_request:
+    paths:
+      - "**/*.conf"
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: soulteary/nginx-format-action@v1
+        with:
+          path: .
+          mode: check
+```
+
+关于写入模式、缩进设置、版本固定及更多示例，请查看 [Nginx Format Action 中文文档](https://github.com/soulteary/nginx-format-action/blob/main/README_CN.md)。
+
 使用默认参数格式化当前目录中的所有的 Nginx 配置文件：
 
 ```bash
