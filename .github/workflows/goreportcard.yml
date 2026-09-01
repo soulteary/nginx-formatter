@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - id: grc
-        uses: soulteary/goreportcard-action@v1.0.0
+        uses: soulteary/goreportcard-action@v1.1.0
         with:
           directory: "."
           output: ".github/goreportcard.svg"
