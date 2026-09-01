@@ -12,6 +12,12 @@
 
 <img src=".github/preview.png">
 
+> **[v2.3.0](https://github.com/soulteary/nginx-formatter/releases/tag/v2.3.0) 更新说明**
+>
+> - 将自动化 Go Report Card 工作流升级至 `soulteary/goreportcard-action` v1.1.0。
+> - 收紧 Codecov 工作流权限，将 `GITHUB_TOKEN` 明确限制为仅可读取仓库内容。
+> - 发布适用于 macOS 与 Linux 的 x86、x86-64、ARM64、ARMv6、ARMv7 预编译程序及校验和。
+>
 > **v2.2.0 更新说明**
 >
 > - 基于 [Cobra](https://github.com/spf13/cobra) 重新设计命令行，改为语义化子命令（`format` / `serve` / `version`），采用现代的 `--long`/`-short` 参数风格，并为每个命令提供独立的 `--help`。
@@ -40,7 +46,7 @@
 
 ```bash
 docker pull soulteary/nginx-formatter:latest
-docker pull soulteary/nginx-formatter:v2.2.0
+docker pull soulteary/nginx-formatter:v2.3.0
 ```
 
 ### Homebrew 安装
