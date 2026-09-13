@@ -12,6 +12,13 @@
 
 <img src=".github/preview.png">
 
+> **[v2.4.0](https://github.com/soulteary/nginx-formatter/releases/tag/v2.4.0) 更新说明**
+>
+> - 修复 WebUI 静默吞掉 Nginx 变量的问题。格式化结果此前通过 `regexp.ReplaceAllString` 拼接进页面，而替换串中的 `$name` 会被当作捕获组引用，导致 `$host`、`$remote_addr`、`$upstream_addr` 被替换为空字符串。
+> - WebUI 现在会对格式化结果做 HTML 转义，配置中包含 `</textarea>` 或 `<` 不再会破坏页面或注入标记。
+> - 格式化结果改为由 `POST /format` 直接返回，不再存入进程级缓存后经重定向取回，因此不会把某位访问者的配置展示给另一位。`GET /` 始终返回默认页面。
+> - 将 `gosec` 安全扫描固定到发布版本的提交 SHA，不再跟踪 `master` 分支。
+>
 > **[v2.3.0](https://github.com/soulteary/nginx-formatter/releases/tag/v2.3.0) 更新说明**
 >
 > - 将自动化 Go Report Card 工作流升级至 `soulteary/goreportcard-action` v1.1.0。
@@ -46,7 +53,7 @@
 
 ```bash
 docker pull soulteary/nginx-formatter:latest
-docker pull soulteary/nginx-formatter:v2.3.0
+docker pull soulteary/nginx-formatter:v2.4.0
 ```
 
 ### Homebrew 安装
