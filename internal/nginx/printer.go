@@ -19,7 +19,10 @@ func Format(cfg *Config, indent int, char string) string {
 	lines = addEmptyLineAfterBraces(lines)
 	out := strings.Join(lines, "\n")
 	out = foldEmptyBrackets(out)
-	return out
+	// Terminate with exactly one newline. Without this the trailing newline is
+	// an accident of whether addEmptyLineAfterBraces happened to fire on the
+	// last line, so configs ending in a directive lost theirs entirely.
+	return strings.TrimRight(out, "\n") + "\n"
 }
 
 func indentOf(level int, unit string) string {
@@ -40,11 +43,15 @@ func renderNodes(lines *[]string, nodes []Node, level int, unit string) {
 			if head != "" {
 				head += " "
 			}
-			if len(node.Body) == 0 {
-				// Empty block; rendered as "{  }".
-				*lines = append(*lines, head+"{  }"+inlineComment(node.OpenComment))
+			if len(node.Body) == 0 && node.OpenComment == "" && node.InlineComment == "" {
+				// Empty block with nothing to carry; rendered as "{  }".
+				*lines = append(*lines, head+"{  }")
 				continue
 			}
+			// An empty block that has a comment falls through to the two-line
+			// form. The compact "{  }" cannot round-trip a comment: on re-parse
+			// anything after it binds to the closing brace, so a second format
+			// pass would drop it.
 			*lines = append(*lines, head+"{"+inlineComment(node.OpenComment))
 			renderNodes(lines, node.Body, level+1, unit)
 			*lines = append(*lines, indentOf(level, unit)+"}"+inlineComment(node.InlineComment))
@@ -54,12 +61,12 @@ func renderNodes(lines *[]string, nodes []Node, level int, unit string) {
 				head += " "
 			}
 			raw := strings.Trim(node.Raw, "\n")
-			if strings.TrimSpace(raw) == "" {
-				// No meaningful body; render like an empty block.
-				*lines = append(*lines, head+"{  }"+inlineComment(node.OpenComment))
+			if strings.TrimSpace(raw) == "" && node.InlineComment == "" {
+				// No meaningful body and no comment; render like an empty block.
+				*lines = append(*lines, head+"{  }")
 				continue
 			}
-			*lines = append(*lines, head+"{"+inlineComment(node.OpenComment))
+			*lines = append(*lines, head+"{")
 			base := indentOf(level+1, unit)
 			*lines = append(*lines, reindentRawLines(raw, base)...)
 			*lines = append(*lines, indentOf(level, unit)+"}"+inlineComment(node.InlineComment))

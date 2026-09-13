@@ -126,11 +126,14 @@ jobs:
 
 ### 命令行用法（CLI）
 
-格式化指定目录中的配置文件：
+格式化指定目录中的配置文件。未指定 `--output` 时会就地格式化，与单文件模式一致：
 
 ```bash
 ./nginx-formatter format -i ./your-dir-path
 ```
+
+符号链接会被跳过并给出提示，而不是跟随。因此常见的 `sites-enabled` → `sites-available`
+布局只会通过真实文件格式化一次，链接结构保持不变。
 
 在新目录中保存格式化后的配置文件：
 
@@ -173,6 +176,12 @@ jobs:
 
 ```bash
 ./nginx-formatter serve -p 8123 -n 4 -c space
+```
+
+WebUI 默认监听所有网卡，以便下文的 Docker 用法正常工作。可用 `--host` 限制为仅本机访问：
+
+```bash
+./nginx-formatter serve --host 127.0.0.1
 ```
 
 ### 查看版本
@@ -254,6 +263,7 @@ Flags:
 
 ```bash
   -c, --char string   Default indent char the WebUI applies (space/tab/\s/\t) (default " ")
+      --host string   Address to bind (default: all interfaces)
   -n, --indent int    Default indent size the WebUI applies (default 2)
   -p, --port int      WebUI port (default 8080)
 ```

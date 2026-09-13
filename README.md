@@ -126,11 +126,16 @@ Use different indentation symbols (you can use spaces, tabs, `space`, `tab`, `\s
 
 ### CLI Usage
 
-Format the configuration file in the specified directory:
+Format the configuration file in the specified directory. Without `--output` the
+files are formatted in place, matching single-file behaviour:
 
 ```bash
 ./nginx-formatter format -i ./your-dir-path
 ```
+
+Symbolic links are reported and skipped rather than followed, so the usual
+`sites-enabled` → `sites-available` layout is formatted exactly once, through
+the real file, and the links are left intact.
 
 Format a directory and save it in a new directory:
 
@@ -173,6 +178,13 @@ specified the port:
 
 ```bash
 ./nginx-formatter serve -p 8123 -n 4 -c space
+```
+
+The WebUI binds every interface by default so the Docker usage below works.
+Restrict it to this machine with `--host`:
+
+```bash
+./nginx-formatter serve --host 127.0.0.1
 ```
 
 ### Version
@@ -252,6 +264,7 @@ Flags:
 
 ```bash
   -c, --char string   Default indent char the WebUI applies (space/tab/\s/\t) (default " ")
+      --host string   Address to bind (default: all interfaces)
   -n, --indent int    Default indent size the WebUI applies (default 2)
   -p, --port int      WebUI port (default 8080)
 ```

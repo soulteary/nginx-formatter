@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/soulteary/nginx-formatter/internal/checker"
@@ -18,7 +20,13 @@ import (
 // flag is empty:
 //   - output != ""                    -> returned as-is
 //   - output == "" and src is a file  -> returns "" so UpdateConfFile overwrites in place
-//   - output == "" and src is a dir   -> falls back to the current working directory
+//   - output == "" and src is a dir   -> returns src so the directory is formatted in place
+//
+// Directory mode used to fall back to the working directory, which meant
+// `format -i ./conf.d` left ./conf.d untouched and instead wrote a copy of the
+// tree into the caller's cwd, silently overwriting any same-named file there.
+// Both modes now mean the same thing when no output is given: format where the
+// input is.
 func resolveOutputDefault(src string, output string) (string, error) {
 	if output != "" {
 		return output, nil
@@ -28,7 +36,7 @@ func resolveOutputDefault(src string, output string) (string, error) {
 		return "", nil
 	}
 
-	return os.Getwd()
+	return src, nil
 }
 
 // resolveIndentChar normalizes and validates the indent char, falling back to
@@ -40,14 +48,18 @@ func resolveIndentChar(indentChar string) string {
 		return define.DEFAULT_INDENT_CHAR
 	}
 
+	// Normalize the documented spellings to the real character before
+	// validating. "\\s" and "\\t" are the two-character escape forms the README
+	// and --help advertise; leaving them un-normalized would write the literal
+	// text (e.g. "\\s\\s") into the config as indentation.
 	switch indentChar {
-	case "space":
+	case "space", "\\s":
 		indentChar = " "
-	case "tab":
+	case "tab", "\\t":
 		indentChar = "\t"
 	}
 
-	if indentChar != "\t" && indentChar != " " && indentChar != "\\s" {
+	if indentChar != "\t" && indentChar != " " {
 		fmt.Printf("Specify the indent char not support, use the default value: `%s`\n", define.DISPLAY_INDENT_CHARS[define.DEFAULT_INDENT_CHAR])
 		indentChar = define.DEFAULT_INDENT_CHAR
 	}
@@ -106,7 +118,7 @@ func runFormat(input string, output string, indent int, indentChar string) error
 		if dest == "" {
 			fmt.Println("No output specified, will overwrite the input file in place")
 		} else {
-			fmt.Println("No output directory specified, use the current working directory:", dest)
+			fmt.Println("No output directory specified, will format the input directory in place:", dest)
 		}
 	} else {
 		fmt.Println("Specify the output directory as:", output)
@@ -130,14 +142,21 @@ func runFormat(input string, output string, indent int, indentChar string) error
 }
 
 // runServe launches the WebUI, reusing the existing server logic.
-func runServe(port int, indent int, indentChar string) error {
+func runServe(host string, port int, indent int, indentChar string) error {
 	indent = resolveIndent(indent)
 	indentChar = resolveIndentChar(indentChar)
 	port = resolvePort(port)
-	fmt.Printf("Enable WebUI, please visit http://localhost:%d\n", port)
+
+	// Report the address actually bound. An empty host means every interface,
+	// so saying "localhost" there would understate the exposure.
+	if host == "" {
+		fmt.Printf("Enable WebUI on all interfaces, please visit http://localhost:%d\n", port)
+	} else {
+		fmt.Printf("Enable WebUI, please visit http://%s\n", net.JoinHostPort(host, strconv.Itoa(port)))
+	}
 	fmt.Println()
 
-	return server.Launch(port, indent, indentChar, formatter.Formatter)
+	return server.Launch(host, port, indent, indentChar, formatter.Formatter)
 }
 
 // newRootCmd builds the root command, mounts the semantic subcommands, and
@@ -150,6 +169,7 @@ func newRootCmd() *cobra.Command {
 		legacyChar   string
 		legacyWeb    bool
 		legacyPort   int
+		legacyHost   string
 	)
 
 	rootCmd := &cobra.Command{
@@ -180,7 +200,7 @@ func newRootCmd() *cobra.Command {
 		// runs format logic (including the legacy -input/-output/... flags).
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if legacyWeb {
-				return runServe(legacyPort, legacyIndent, legacyChar)
+				return runServe(legacyHost, legacyPort, legacyIndent, legacyChar)
 			}
 			return runFormat(legacyInput, legacyOutput, legacyIndent, legacyChar)
 		},
@@ -193,10 +213,12 @@ func newRootCmd() *cobra.Command {
 	flags.StringVar(&legacyChar, define.APP_ARGV_CHAR, define.DEFAULT_INDENT_CHAR, "Indent char (legacy)")
 	flags.BoolVar(&legacyWeb, define.APP_ARGV_WEB, define.DEFAULT_WEB, "Enable WebUI (legacy)")
 	flags.IntVar(&legacyPort, define.APP_ARGV_PORT, define.DEFAULT_PORT, "WebUI port (legacy)")
+	flags.StringVar(&legacyHost, define.APP_ARGV_HOST, define.DEFAULT_HOST, "Address to bind (legacy)")
 
 	for _, name := range []string{
 		define.APP_ARGV_INPUT, define.APP_ARGV_OUTPUT, define.APP_ARGV_INDENT,
 		define.APP_ARGV_CHAR, define.APP_ARGV_WEB, define.APP_ARGV_PORT,
+		define.APP_ARGV_HOST,
 	} {
 		_ = flags.MarkHidden(name)
 	}
@@ -213,6 +235,7 @@ var legacyFlags = map[string]struct{}{
 	define.APP_ARGV_CHAR:   {},
 	define.APP_ARGV_WEB:    {},
 	define.APP_ARGV_PORT:   {},
+	define.APP_ARGV_HOST:   {},
 }
 
 // normalizeLegacyArgs rewrites legacy single-dash long flags (e.g. `-input`,

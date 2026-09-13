@@ -279,7 +279,7 @@ func TestFormatEmptyBlockFold(t *testing.T) {
 		t.Fatalf("parse error: %v", err)
 	}
 	out := Format(cfg, 4, " ")
-	if out != "events {  }" {
+	if out != "events {  }\n" {
 		t.Errorf("empty block not folded: %q", out)
 	}
 }
@@ -617,7 +617,7 @@ func TestParseNestedBraceVar(t *testing.T) {
 		t.Errorf("nested var args wrong: %#v", dir.Args)
 	}
 	out := Format(cfg, 4, " ")
-	if out != "set $x ${a${b}};" {
+	if out != "set $x ${a${b}};\n" {
 		t.Errorf("nested var render wrong: %q", out)
 	}
 }

@@ -40,15 +40,14 @@ func (*Block) node() {}
 // "{" and "}" (excluding the braces), so the embedded Lua is preserved
 // rather than parsed as nginx syntax.
 //
-// OpenComment holds a trailing comment on the same line as the opening
-// "{" (rendered as `head { # comment`), if any. InlineComment holds a
-// trailing comment on the same line as the closing "}" (rendered as
-// `} # comment`), if any. Both exclude the leading "#".
+// There is deliberately no OpenComment field: a comment on the same line as
+// the opening "{" is part of the verbatim body and is already carried in Raw.
+// InlineComment holds a trailing comment on the same line as the closing "}"
+// (rendered as `} # comment`), if any, excluding the leading "#".
 type RawBlock struct {
 	Name          string
 	Args          []string
 	Raw           string
-	OpenComment   string
 	InlineComment string
 }
 
