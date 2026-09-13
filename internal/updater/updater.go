@@ -1,6 +1,9 @@
 package updater
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -84,6 +87,32 @@ func resolveTarget(inputFile string, output string) (string, error) {
 	return output, nil
 }
 
+// resolveSymlink follows a symlink chain to the path it finally names, even
+// when that path does not exist yet.
+//
+// filepath.EvalSymlinks fails on a dangling link, and treating that failure as
+// "not a symlink" would make the rename below replace the link itself with a
+// regular file. Pointing --output at a not-yet-created target is a legitimate
+// layout, and the previous os.WriteFile followed the link and created it.
+func resolveSymlink(path string) string {
+	// Bounded so a symlink loop cannot spin here.
+	for range 16 {
+		info, err := os.Lstat(path)
+		if err != nil || info.Mode()&os.ModeSymlink == 0 {
+			return path
+		}
+		dest, err := os.Readlink(path)
+		if err != nil {
+			return path
+		}
+		if !filepath.IsAbs(dest) {
+			dest = filepath.Join(filepath.Dir(path), dest)
+		}
+		path = dest
+	}
+	return path
+}
+
 // writeFileAtomic replaces path's contents in a single step: it writes a
 // temporary file in the same directory, then renames it over the target.
 //
@@ -92,15 +121,20 @@ func resolveTarget(inputFile string, output string) (string, error) {
 // the process were interrupted or the filesystem filled up. A rename is
 // atomic, so the file is either the old content or the new one.
 //
-// An existing file's permission bits are preserved, and a symlink is resolved
-// first so the link structure survives.
+// A rename installs a NEW inode, so the target's permissions and ownership are
+// re-applied explicitly. When ownership cannot be carried over — the caller is
+// not privileged enough to chown — this falls back to rewriting the existing
+// inode, which preserves every piece of metadata (ownership, ACLs, security
+// labels) at the cost of atomicity. That is exactly the behaviour this helper
+// replaced, so the fallback is never worse than not having it.
 func writeFileAtomic(path string, data []byte) error {
+	path = resolveSymlink(path)
+
 	perm := defaultFileMode
-	if resolved, err := filepath.EvalSymlinks(path); err == nil {
-		path = resolved
-	}
+	var owner *fileOwnership
 	if info, err := os.Stat(path); err == nil {
 		perm = info.Mode().Perm()
+		owner = ownerOf(info)
 	}
 
 	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*")
@@ -125,19 +159,51 @@ func writeFileAtomic(path string, data []byte) error {
 	if err := os.Chmod(name, perm); err != nil { // #nosec G302 -- see defaultFileMode
 		return err
 	}
+	if owner != nil {
+		if err := os.Chown(name, owner.uid, owner.gid); err != nil {
+			return os.WriteFile(path, data, perm) // #nosec G306 -- see defaultFileMode
+		}
+	}
 	return os.Rename(name, path)
 }
 
+// createRootTemp opens a uniquely named temporary file alongside rel.
+//
+// os.Root has no CreateTemp, and a fixed name would be a trap: a run killed
+// between creating the file and renaming it would leave the name taken, and
+// every later run would then fail at O_EXCL with EEXIST until someone found
+// and deleted the hidden file by hand.
+func createRootTemp(root *os.Root, rel string, perm os.FileMode) (string, *os.File, error) {
+	dir, base := filepath.Dir(rel), filepath.Base(rel)
+	for range 100 {
+		var suffix [8]byte
+		if _, err := rand.Read(suffix[:]); err != nil {
+			return "", nil, err
+		}
+		name := filepath.Join(dir, "."+base+".tmp-"+hex.EncodeToString(suffix[:]))
+		f, err := root.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm) // #nosec G302 -- see defaultFileMode
+		if err == nil {
+			return name, f, nil
+		}
+		if !errors.Is(err, fs.ErrExist) {
+			return "", nil, err
+		}
+	}
+	return "", nil, fmt.Errorf("could not create a temporary file next to %s", rel)
+}
+
 // writeRootFileAtomic is writeFileAtomic scoped to an os.Root, used by the
-// directory walker so a write cannot escape the output tree.
+// directory walker so a write cannot escape the output tree. It carries over
+// permissions and ownership, and falls back the same way.
 func writeRootFileAtomic(root *os.Root, rel string, data []byte) error {
 	perm := defaultFileMode
+	var owner *fileOwnership
 	if info, err := root.Stat(rel); err == nil {
 		perm = info.Mode().Perm()
+		owner = ownerOf(info)
 	}
 
-	tmpRel := filepath.Join(filepath.Dir(rel), "."+filepath.Base(rel)+".tmp")
-	f, err := root.OpenFile(tmpRel, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm) // #nosec G302 -- see defaultFileMode
+	tmpRel, f, err := createRootTemp(root, rel, perm)
 	if err != nil {
 		return err
 	}
@@ -156,6 +222,11 @@ func writeRootFileAtomic(root *os.Root, rel string, data []byte) error {
 	}
 	if err := root.Chmod(tmpRel, perm); err != nil { // #nosec G302 -- see defaultFileMode
 		return err
+	}
+	if owner != nil {
+		if err := root.Chown(tmpRel, owner.uid, owner.gid); err != nil {
+			return root.WriteFile(rel, data, perm) // #nosec G306 -- see defaultFileMode
+		}
 	}
 	return root.Rename(tmpRel, rel)
 }
