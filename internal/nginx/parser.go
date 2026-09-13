@@ -3,21 +3,43 @@ package nginx
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 )
+
+// MaxBlockDepth bounds how deeply blocks may nest.
+//
+// Real nginx configurations nest about ten levels at most (http > server >
+// location > ...), so this is generous. The bound exists because output size
+// grows with the square of the nesting depth: every line of a block at depth N
+// carries N indent units, so N nested blocks emit 2N lines whose indentation
+// sums to O(N^2) bytes. Without it, a few kilobytes of "a{a{a{..." expand into
+// gigabytes and the process is killed by the OOM reaper — reachable remotely
+// through the WebUI's POST /format.
+const MaxBlockDepth = 64
 
 // Parser is a recursive-descent parser producing an nginx AST.
 type Parser struct {
 	lex      *Lexer
 	tok      Token
 	lastLine int // line of the most recently consumed (non-lookahead) token
+	depth    int // current block nesting depth
 }
 
 // Parse lexes and parses src into a *Config. It returns an error with a line
-// number on unbalanced braces or a missing semicolon.
+// number on unbalanced braces or a missing semicolon, and rejects input that
+// is not valid UTF-8 text.
 func Parse(src string) (*Config, error) {
+	if err := checkText(src); err != nil {
+		return nil, err
+	}
 	p := &Parser{lex: NewLexer(src)}
 	p.advance()
 	nodes, err := p.parseNodes(false, 0)
+	// A lexical error is reported ahead of any parse error: it names the exact
+	// malformed token, whereas the parser only sees the damage downstream.
+	if lexErr := p.lex.Err(); lexErr != nil {
+		return nil, lexErr
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +165,12 @@ func (p *Parser) parseStatement() (Node, error) {
 			p.lastLine = p.tok.Line
 			p.advance()
 		}
+		p.depth++
+		if p.depth > MaxBlockDepth {
+			return nil, fmt.Errorf("line %d: block nesting too deep (max %d)", braceLine, MaxBlockDepth)
+		}
 		body, err := p.parseNodes(true, braceLine)
+		p.depth--
 		if err != nil {
 			return nil, err
 		}
@@ -209,4 +236,30 @@ func (p *Parser) consumeInlineComment() string {
 		return text
 	}
 	return ""
+}
+
+// checkText rejects input the formatter cannot round-trip losslessly.
+//
+// Both checks guard the same failure mode: the tool's default mode overwrites
+// the input file, so anything the lexer silently mangles is written back over
+// the original.
+//
+//   - A NUL byte becomes rune 0, which the lexer also uses as its end-of-input
+//     sentinel, so everything after the first NUL would be dropped. UTF-16
+//     text is the common source (every ASCII character is followed by a NUL).
+//   - Converting a string to []rune replaces each invalid UTF-8 byte with
+//     U+FFFD, so a GBK or Latin-1 config would come back with its non-ASCII
+//     bytes destroyed.
+//
+// nginx itself rejects both, so no loadable config is turned away here.
+func checkText(src string) error {
+	if i := strings.IndexByte(src, 0); i >= 0 {
+		return fmt.Errorf("offset %d: input contains a NUL byte; "+
+			"this is binary or UTF-16 content, not an nginx config", i)
+	}
+	if !utf8.ValidString(src) {
+		return fmt.Errorf("input is not valid UTF-8; " +
+			"re-encode the file as UTF-8 before formatting")
+	}
+	return nil
 }

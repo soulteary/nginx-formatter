@@ -25,18 +25,18 @@ func TestResolveOutputDefault(t *testing.T) {
 		}
 	})
 
-	t.Run("src is a directory and output empty returns cwd", func(t *testing.T) {
-		got, err := resolveOutputDefault(t.TempDir(), "")
+	// A directory with no -o is formatted in place, matching single-file mode.
+	// Returning the working directory instead (the old behaviour) left the
+	// named directory untouched and scattered a copy of the tree into cwd,
+	// overwriting same-named files there.
+	t.Run("src is a directory and output empty returns src", func(t *testing.T) {
+		dir := t.TempDir()
+		got, err := resolveOutputDefault(dir, "")
 		if err != nil {
 			t.Fatalf("resolveOutputDefault: %v", err)
 		}
-
-		cwd, err := os.Getwd()
-		if err != nil {
-			t.Fatalf("getwd: %v", err)
-		}
-		if got != cwd {
-			t.Errorf("expected cwd %q for directory input, got %q", cwd, got)
+		if got != dir {
+			t.Errorf("expected input dir %q for directory input, got %q", dir, got)
 		}
 	})
 
@@ -65,10 +65,15 @@ func TestResolveIndent(t *testing.T) {
 
 func TestResolveIndentChar(t *testing.T) {
 	cases := map[string]string{
-		"":      define.DEFAULT_INDENT_CHAR,
-		" ":     " ",
-		"\t":    "\t",
-		"\\s":   "\\s",
+		"":   define.DEFAULT_INDENT_CHAR,
+		" ":  " ",
+		"\t": "\t",
+		// The two escape spellings the README and --help advertise must resolve
+		// to the real characters rather than being passed through verbatim:
+		// printer.go repeats this value, so "\\s" would be written into the
+		// config as literal backslash-s indentation.
+		"\\s":   " ",
+		"\\t":   "\t",
 		"space": " ",
 		"tab":   "\t",
 		"bogus": define.DEFAULT_INDENT_CHAR,
@@ -200,5 +205,18 @@ func TestNormalizeLegacyArgs(t *testing.T) {
 				t.Fatalf("normalizeLegacyArgs(%v) = %v, want %v", c.in, got, c.want)
 			}
 		}
+	}
+}
+
+// TestResolveIndentCharEscapeForms is the regression guard for the documented
+// "\s" / "\t" spellings. "\s" used to pass validation unchanged and reach
+// printer.go's strings.Repeat, writing literal backslash-s pairs into the
+// user's config as indentation while the CLI reported "[SPACE]".
+func TestResolveIndentCharEscapeForms(t *testing.T) {
+	if got := resolveIndentChar(`\s`); got != " " {
+		t.Errorf(`resolveIndentChar("\\s") = %q, want a real space`, got)
+	}
+	if got := resolveIndentChar(`\t`); got != "\t" {
+		t.Errorf(`resolveIndentChar("\\t") = %q, want a real tab`, got)
 	}
 }

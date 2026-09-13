@@ -72,7 +72,8 @@ http {
 		t.Errorf("formatter error: %v\n", err)
 	}
 
-	if result != TestExpected {
+	// Format terminates every file with exactly one newline.
+	if result != TestExpected+"\n" {
 		t.Error("formatter result not expected", result, TestExpected)
 	}
 }

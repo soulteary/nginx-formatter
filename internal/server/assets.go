@@ -43,10 +43,14 @@ func renderPage(body string) string {
 // formatPage formats s and renders the resulting page. A formatting failure is
 // reported inside the textarea rather than as an HTTP error, matching the
 // previous behaviour.
+//
+// The parser's message (which carries the offending line number) is included:
+// a bare "format error" gives the user nothing to act on. renderPage escapes
+// it, so the text is inert in the page.
 func formatPage(s string, indent int, char string, fn func(s string, indent int, char string) (string, error)) string {
 	formatted, err := fn(strings.TrimSpace(s), indent, char)
 	if err != nil {
-		formatted = "format error"
+		formatted = "# format error: " + err.Error() + "\n\n" + strings.TrimSpace(s)
 	}
 	return renderPage(formatted)
 }

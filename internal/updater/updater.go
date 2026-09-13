@@ -5,65 +5,21 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
-// FixReturn normalizes "return" directives so a bare argument is wrapped in
-// double quotes, matching the historical updater behavior. Examples:
+// defaultFileMode is used when creating a file that does not already exist.
+// Configuration files must stay readable by the account nginx runs its workers
+// as, which is usually not the account that ran the formatter.
+const defaultFileMode = os.FileMode(0644)
+
+// ScanFiles lists the ".conf" files under rootDir, as paths relative to it.
 //
-//	return 200 $content;  -> return 200 "$content";
-//	return 200 "ok";      -> return 200 "ok"; (unchanged)
-//	return 200;           -> return 200; (unchanged)
-//	return BACKEND;       -> return BACKEND; (unchanged)
-//	return "ok";          -> return "ok"; (unchanged)
-func FixReturn(s string) string {
-
-	var scene1 = regexp.MustCompile(`return\s+(\d+)\s+(\S+)\s*;`)
-	var scene2 = regexp.MustCompile(`return\s+(\d+)\s+"(\S+)"\s*;`)
-	var scene3 = regexp.MustCompile(`return\s+(\S+)\s*;`)
-	var scene4 = regexp.MustCompile(`return\s+"(\S+)"\s*;`)
-	var scene5 = regexp.MustCompile(`return\s+(\d+)\s*;`)
-	var scene6 = regexp.MustCompile(`return\s+"(.+)"\s*;`)
-	var scene7 = regexp.MustCompile(`return\s+(\d+)\s+"(.+)"\s*;`)
-	var scene8 = regexp.MustCompile(`return\s+(\d+)\s+"([\s|\S|\n|\r|\t]+)"\s*;`)
-	var scene9 = regexp.MustCompile(`return\s+"([\s|\S|\n|\r|\t]+)"\s*;`)
-
-	if scene1.MatchString(s) {
-		if scene2.MatchString(s) { // eg: `return 200 "ok";`
-			return strings.TrimSpace(scene2.ReplaceAllString(s, "return $1 \"$2\";"))
-		} else { // eg: `return 200 $content;`
-			return strings.TrimSpace(scene1.ReplaceAllString(s, "return $1 \"$2\";"))
-		}
-	} else if scene3.MatchString(s) {
-		if scene5.MatchString(s) { // eg: `return 200;`
-			return strings.TrimSpace(scene5.ReplaceAllString(s, "return $1;"))
-		} else if scene6.MatchString(s) { // eg: `return "ok";`
-			if scene4.MatchString(s) {
-				return strings.TrimSpace(scene4.ReplaceAllString(s, "return \"$1\";"))
-			} else {
-				return strings.TrimSpace(scene6.ReplaceAllString(s, "return \"$1\";"))
-			}
-		} else { // eg: `return BACKEND\n;`
-			found := scene3.FindString(s)
-			if !strings.HasPrefix(found, `"`) || !strings.HasSuffix(found, `"`) {
-				return strings.TrimSpace(scene3.ReplaceAllString(s, "return $1;"))
-			} else {
-				return strings.TrimSpace(scene3.ReplaceAllString(s, "return \"$1\";"))
-			}
-		}
-	} else {
-		if scene7.MatchString(s) {
-			return strings.TrimSpace(scene7.ReplaceAllString(s, "return $1 \"$2\";"))
-		} else if scene8.MatchString(s) {
-			return strings.TrimSpace(scene8.ReplaceAllString(s, "return $1 \"$2\";"))
-		} else if scene9.MatchString(s) {
-			return strings.TrimSpace(scene9.ReplaceAllString(s, "return \"$1\";"))
-		}
-	}
-	return s
-}
-
+// Symbolic links are reported and skipped rather than followed. The standard
+// Debian/Ubuntu layout links sites-enabled/x.conf to sites-available/x.conf,
+// so following links would format the same file twice, and an atomic write
+// through a link would replace the link with a regular file. When the target
+// lives inside the scanned tree it is formatted via its own path anyway.
 func ScanFiles(rootDir string) ([]string, error) {
 	if rootDir == "" {
 		return nil, fmt.Errorf("scandir is empty")
@@ -77,7 +33,14 @@ func ScanFiles(rootDir string) ([]string, error) {
 	var files []string
 	err = fs.WalkDir(root.FS(), ".", func(rel string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			// One unreadable entry must not abort the whole scan: a single
+			// permission-denied directory would otherwise mean nothing at all
+			// gets formatted.
+			fmt.Printf("Skipping %s: %v\n", rel, err)
+			if d != nil && d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
 		}
 		if d.IsDir() {
 			return nil
@@ -85,8 +48,9 @@ func ScanFiles(rootDir string) ([]string, error) {
 		if !strings.HasSuffix(rel, ".conf") {
 			return nil
 		}
-		if _, err := root.ReadFile(rel); err != nil {
-			return err
+		if d.Type()&fs.ModeSymlink != 0 {
+			fmt.Printf("Skipping %s: symbolic link\n", rel)
+			return nil
 		}
 		files = append(files, rel)
 		return nil
@@ -113,11 +77,87 @@ func resolveTarget(inputFile string, output string) (string, error) {
 	}
 
 	if dir := filepath.Dir(output); dir != "." && dir != "" {
-		if err := os.MkdirAll(dir, 0700); err != nil {
+		if err := os.MkdirAll(dir, 0750); err != nil {
 			return "", err
 		}
 	}
 	return output, nil
+}
+
+// writeFileAtomic replaces path's contents in a single step: it writes a
+// temporary file in the same directory, then renames it over the target.
+//
+// The tool's default mode overwrites the user's live configuration, so a plain
+// truncate-and-write would leave a half-written, unloadable config behind if
+// the process were interrupted or the filesystem filled up. A rename is
+// atomic, so the file is either the old content or the new one.
+//
+// An existing file's permission bits are preserved, and a symlink is resolved
+// first so the link structure survives.
+func writeFileAtomic(path string, data []byte) error {
+	perm := defaultFileMode
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		path = resolved
+	}
+	if info, err := os.Stat(path); err == nil {
+		perm = info.Mode().Perm()
+	}
+
+	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	name := tmp.Name()
+	// Removing the temporary file is a no-op once the rename has succeeded.
+	defer func() { _ = os.Remove(name) }()
+
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(name, perm); err != nil { // #nosec G302 -- see defaultFileMode
+		return err
+	}
+	return os.Rename(name, path)
+}
+
+// writeRootFileAtomic is writeFileAtomic scoped to an os.Root, used by the
+// directory walker so a write cannot escape the output tree.
+func writeRootFileAtomic(root *os.Root, rel string, data []byte) error {
+	perm := defaultFileMode
+	if info, err := root.Stat(rel); err == nil {
+		perm = info.Mode().Perm()
+	}
+
+	tmpRel := filepath.Join(filepath.Dir(rel), "."+filepath.Base(rel)+".tmp")
+	f, err := root.OpenFile(tmpRel, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm) // #nosec G302 -- see defaultFileMode
+	if err != nil {
+		return err
+	}
+	defer func() { _ = root.Remove(tmpRel) }()
+
+	if _, err := f.Write(data); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if err := root.Chmod(tmpRel, perm); err != nil { // #nosec G302 -- see defaultFileMode
+		return err
+	}
+	return root.Rename(tmpRel, rel)
 }
 
 // UpdateConfFile formats a single file. Unlike UpdateConfInDir it does not
@@ -128,24 +168,24 @@ func UpdateConfFile(inputFile string, output string, indent int, indentChar stri
 	// untrusted-path file-inclusion risk. Suppress gosec G304 accordingly.
 	buf, err := os.ReadFile(inputFile) // #nosec G304
 	if err != nil {
-		fmt.Printf("Formatter Nginx Conf %s failed, can not open the file\n", err)
+		fmt.Printf("Formatter Nginx Conf %s failed, can not open the file: %v\n", inputFile, err)
 		return err
 	}
 
-	modifiedData, err := fn(FixReturn(string(buf)), indent, indentChar)
+	modifiedData, err := fn(string(buf), indent, indentChar)
 	if err != nil {
-		fmt.Printf("Formatter Nginx Conf %s failed, can not format the file\n", err)
+		fmt.Printf("Formatter Nginx Conf %s failed, can not format the file: %v\n", inputFile, err)
 		return err
 	}
 
 	target, err := resolveTarget(inputFile, output)
 	if err != nil {
-		fmt.Printf("Formatter Nginx Conf %s failed, can not prepare the save dir\n", err)
+		fmt.Printf("Formatter Nginx Conf %s failed, can not prepare the save dir: %v\n", inputFile, err)
 		return err
 	}
 
-	if err := os.WriteFile(target, []byte(modifiedData), 0600); err != nil {
-		fmt.Printf("Formatter Nginx Conf %s failed, can not save the file\n", err)
+	if err := writeFileAtomic(target, []byte(modifiedData)); err != nil {
+		fmt.Printf("Formatter Nginx Conf %s failed, can not save the file: %v\n", target, err)
 		return err
 	}
 
@@ -165,8 +205,8 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 	}
 	defer func() { _ = inRoot.Close() }()
 
-	if err := os.MkdirAll(outputDir, 0700); err != nil {
-		fmt.Printf("Formatter Nginx Conf %s failed, can not prepare the save dir\n", err)
+	if err := os.MkdirAll(outputDir, 0750); err != nil {
+		fmt.Printf("Formatter Nginx Conf failed, can not prepare the save dir %s: %v\n", outputDir, err)
 		return err
 	}
 	outRoot, err := os.OpenRoot(outputDir)
@@ -175,32 +215,45 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 	}
 	defer func() { _ = outRoot.Close() }()
 
+	// A file that cannot be read or parsed is reported and skipped, so one bad
+	// config no longer leaves the rest of the tree unprocessed. The failures
+	// are surfaced as a single error once every file has been attempted.
+	var failed []string
 	for _, rel := range files {
 		buf, err := inRoot.ReadFile(rel)
 		if err != nil {
-			fmt.Printf("Formatter Nginx Conf %s failed, can not open the file\n", err)
-			return err
+			fmt.Printf("Formatter Nginx Conf %s failed, can not open the file: %v\n", rel, err)
+			failed = append(failed, rel)
+			continue
 		}
 
-		modifiedData, err := fn(FixReturn(string(buf)), indent, indentChar)
+		modifiedData, err := fn(string(buf), indent, indentChar)
 		if err != nil {
-			fmt.Printf("Formatter Nginx Conf %s failed, can not format the file\n", err)
-			return err
+			fmt.Printf("Formatter Nginx Conf %s failed, can not format the file: %v\n", rel, err)
+			failed = append(failed, rel)
+			continue
 		}
 
 		if dir := filepath.Dir(rel); dir != "." {
-			if err := outRoot.MkdirAll(dir, 0700); err != nil {
-				fmt.Printf("Formatter Nginx Conf %s failed, can not prepare the save dir\n", err)
-				return err
+			if err := outRoot.MkdirAll(dir, 0750); err != nil {
+				fmt.Printf("Formatter Nginx Conf %s failed, can not prepare the save dir: %v\n", rel, err)
+				failed = append(failed, rel)
+				continue
 			}
 		}
 
-		if err := outRoot.WriteFile(rel, []byte(modifiedData), 0600); err != nil {
-			fmt.Printf("Formatter Nginx Conf %s failed, can not save the file\n", err)
-			return err
+		if err := writeRootFileAtomic(outRoot, rel, []byte(modifiedData)); err != nil {
+			fmt.Printf("Formatter Nginx Conf %s failed, can not save the file: %v\n", rel, err)
+			failed = append(failed, rel)
+			continue
 		}
 
 		fmt.Printf("Formatter Nginx Conf %s Successed\n", rel)
+	}
+
+	if len(failed) > 0 {
+		return fmt.Errorf("%d of %d file(s) could not be formatted: %s",
+			len(failed), len(files), strings.Join(failed, ", "))
 	}
 	return nil
 }

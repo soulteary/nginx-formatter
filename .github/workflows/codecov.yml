@@ -33,8 +33,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
+      - name: Vet
+        run: go vet ./...
+
       - name: Run coverage
         run: go test ./... -coverprofile=coverage.out -covermode=atomic
+
+      # The WebUI serves concurrent requests, so the race detector is the check
+      # that matters most here; it is a separate run because -race is
+      # incompatible with the atomic cover mode above.
+      - name: Race detector
+        run: go test -race ./...
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         with:

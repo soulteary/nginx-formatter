@@ -32,28 +32,6 @@ func TestScanFiles(t *testing.T) {
 	}
 }
 
-func TestFixReturn(t *testing.T) {
-	cases := []struct {
-		name string
-		in   string
-		want string
-	}{
-		{"number and variable arg", "return 200 $content;", `return 200 "$content";`},
-		{"number and bare arg", "return 302 /foo;", `return 302 "/foo";`},
-		{"number and quoted arg unchanged", `return 200 "ok";`, `return 200 "ok";`},
-		{"plain number unchanged", "return 200;", "return 200;"},
-		{"quoted string unchanged", `return "ok";`, `return "ok";`},
-		{"bare identifier unchanged", "return BACKEND;", "return BACKEND;"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := updater.FixReturn(tc.in); got != tc.want {
-				t.Errorf("FixReturn(%q) = %q, want %q", tc.in, got, tc.want)
-			}
-		})
-	}
-}
-
 func TestUpdateConfInDir(t *testing.T) {
 	src := t.TempDir()
 	dst := t.TempDir()
@@ -75,7 +53,7 @@ func TestUpdateConfInDir(t *testing.T) {
 		t.Fatalf("read output: %v", err)
 	}
 
-	expected := "http {\n    location / {\n        return 200 \"${scheme}://`host`\";\n    }\n\n}"
+	expected := "http {\n    location / {\n        return 200 \"${scheme}://`host`\";\n    }\n\n}\n"
 	if string(out) != expected {
 		t.Errorf("unexpected output.\n got: %q\nwant: %q", string(out), expected)
 	}
@@ -83,7 +61,7 @@ func TestUpdateConfInDir(t *testing.T) {
 
 func TestUpdateConfFile(t *testing.T) {
 	input := "http {\nlocation / {\nreturn 200 \"ok\";\n}\n}"
-	expected := "http {\n    location / {\n        return 200 \"ok\";\n    }\n\n}"
+	expected := "http {\n    location / {\n        return 200 \"ok\";\n    }\n\n}\n"
 
 	t.Run("in place overwrite when output empty", func(t *testing.T) {
 		dir := t.TempDir()
