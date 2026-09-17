@@ -12,6 +12,13 @@ Nginx configuration formatter ~10MB size, support CLI, WebUI, x86, ARM, Linux, m
 
 <img src=".github/preview.png">
 
+> **What's new in [v2.4.0](https://github.com/soulteary/nginx-formatter/releases/tag/v2.4.0)**
+>
+> - Fixed the WebUI silently deleting nginx variables. The formatted output was spliced into the page with `regexp.ReplaceAllString`, where `$name` is a capture-group reference, so `$host`, `$remote_addr` and `$upstream_addr` were replaced with empty strings.
+> - The WebUI now HTML-escapes the formatted output, so a configuration containing `</textarea>` or `<` can no longer break the page or inject markup.
+> - The result is now returned directly from `POST /format` instead of being parked in a process-wide cache and picked up by a redirect, so one visitor's configuration is never served to another. `GET /` always returns the default page.
+> - Pinned the `gosec` security scan to a release commit SHA instead of tracking the `master` branch.
+>
 > **What's new in [v2.3.0](https://github.com/soulteary/nginx-formatter/releases/tag/v2.3.0)**
 >
 > - Updated the automated Go Report Card workflow to use `soulteary/goreportcard-action` v1.1.0.
@@ -46,7 +53,7 @@ If you use docker, you can use the following command ([DockerHub](https://hub.do
 
 ```bash
 docker pull soulteary/nginx-formatter:latest
-docker pull soulteary/nginx-formatter:v2.3.0
+docker pull soulteary/nginx-formatter:v2.4.0
 ```
 
 ### Homebrew
