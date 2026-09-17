@@ -12,6 +12,19 @@
 
 <img src=".github/preview.png">
 
+> **[v2.5.0](https://github.com/soulteary/nginx-formatter/releases/tag/v2.5.0) 更新说明**
+>
+> - 修复多处「格式化会静默破坏被覆盖的配置」的问题。裸词中间的引号（`sub_filter href="/old" href="/new";`、`alias /data/o'brien/;`）此前被当作词边界切开，打印时又用空格拼回去，改变了指令的参数个数，导致 nginx 拒绝加载该配置。裸词的终止规则现已与 nginx 自身的分词器一致。
+> - 移除了在解析前对整个文件运行的 `return` 正则归一化。它会给本已单引号包裹的参数再加一层引号 —— `return 200 'ok';` 变成 `return 200 "'ok'";`，改变了 nginx 实际返回的内容 —— 并且会改写 `*_by_lua_block` 内容、注释和引号字符串中的 `return` 字样。自 v2.0 起 AST 解析器已使它变得多余。
+> - 空块收尾大括号上的注释（`upstream backend {` / `} # TODO`）不再被删除，且格式化现在是幂等的：连续运行两次得到相同的文件。
+> - 含有 NUL 字节或非法 UTF-8 的输入现在会被拒绝，而不是被静默截断或用替换字符改写，且原文件保持不变。未闭合的引号、`${` 或行尾反斜杠会报错，而不是每运行一次就补一个 `;`。
+> - **行为变更：** `format -i <目录>` 在未指定 `--output` 时改为就地格式化该目录，与单文件模式一致。此前它会把格式化后的文件树写进当前工作目录，导致目标目录纹丝未动、可能覆盖工作目录中的同名文件，并使文档中的两条 Docker 命令成为空操作。
+> - **行为变更：** 格式化输出现在以且仅以一个换行结尾。以指令结尾的配置此前会丢失尾随换行，因此首次运行会产生一次性的 diff。
+> - 修复文档中列出的缩进字符：`--char '\s'` 此前会把字面量反斜杠-s 写进每一行却回显 `[SPACE]`，而文档同样列出的 `--char '\t'` 会被直接拒绝。两者现在都会解析为真实的空格和制表符。
+> - 符号链接会被跳过并给出提示，而不是跟随，因此常见的 `sites-enabled` → `sites-available` 布局只会通过真实文件格式化一次，而不会让整次运行中止。
+> - 文件改为原子写入（临时文件 + rename），并保留原有的权限位与属主，不再就地截断并强制设为 0600。单个无法解析的文件也不再中断整批处理。
+> - 新增 `serve --host` 用于限制 WebUI 的监听地址，并加入 1 MiB 请求体上限和 64 层嵌套上限 —— 缩进量随嵌套深度平方增长，此前几 KB 的嵌套块即可耗尽内存。格式化失败现在会显示解析器的错误信息和行号，而不是笼统的 `format error`。
+>
 > **[v2.4.0](https://github.com/soulteary/nginx-formatter/releases/tag/v2.4.0) 更新说明**
 >
 > - 修复 WebUI 静默吞掉 Nginx 变量的问题。格式化结果此前通过 `regexp.ReplaceAllString` 拼接进页面，而替换串中的 `$name` 会被当作捕获组引用，导致 `$host`、`$remote_addr`、`$upstream_addr` 被替换为空字符串。
@@ -53,7 +66,7 @@
 
 ```bash
 docker pull soulteary/nginx-formatter:latest
-docker pull soulteary/nginx-formatter:v2.4.0
+docker pull soulteary/nginx-formatter:v2.5.0
 ```
 
 ### Homebrew 安装
