@@ -12,6 +12,19 @@ Nginx configuration formatter ~10MB size, support CLI, WebUI, x86, ARM, Linux, m
 
 <img src=".github/preview.png">
 
+> **What's new in [v2.5.0](https://github.com/soulteary/nginx-formatter/releases/tag/v2.5.0)**
+>
+> - Fixed several cases where formatting silently corrupted the configuration it overwrote. A quote inside a bare word (`sub_filter href="/old" href="/new";`, `alias /data/o'brien/;`) was treated as a token boundary and the pieces were rejoined with spaces, changing the directive's argument count so nginx refused to load the file. Bare-word termination now matches nginx's own tokenizer.
+> - Removed the regex-based `return` normalization that ran over the whole file before parsing. It re-quoted single-quoted arguments — `return 200 'ok';` became `return 200 "'ok'";`, changing the body nginx serves — and rewrote `return` text inside `*_by_lua_block` bodies, comments and quoted strings. The AST parser has made it unnecessary since v2.0.
+> - A comment on an empty block's closing brace (`upstream backend {` / `} # TODO`) is no longer deleted, and formatting is now idempotent: running the formatter twice produces the same file.
+> - Input containing a NUL byte or invalid UTF-8 is now rejected instead of being silently truncated or rewritten with replacement characters, and the input file is left untouched. An unterminated quote, `${`, or trailing backslash is reported as an error rather than repaired with an extra `;` on every run.
+> - **Behavior change:** `format -i <dir>` without `--output` now formats that directory in place, matching single-file mode. It previously wrote the formatted tree into the current working directory, which left the target untouched, could overwrite same-named files in the working directory, and made both documented Docker commands no-ops.
+> - **Behavior change:** formatted output now ends with exactly one newline. Configurations ending in a directive previously lost their trailing newline, so expect a one-time diff on the first run.
+> - Fixed the documented indent characters: `--char '\s'` wrote literal backslash-s into every line while reporting `[SPACE]`, and `--char '\t'` was rejected outright. Both now resolve to a real space and tab.
+> - Symbolic links are reported and skipped rather than followed, so the standard `sites-enabled` → `sites-available` layout is formatted once through the real file instead of aborting the entire run.
+> - Files are written atomically (temporary file plus rename) and keep their existing permissions and ownership, instead of being truncated in place and forced to mode 0600. One unparseable file no longer stops the rest of the batch.
+> - Added `serve --host` to restrict the WebUI listener, plus a 1 MiB request body limit and a 64-level nesting cap — indentation grows with the square of the nesting depth, so a few kilobytes of nested blocks could previously exhaust memory. Formatting errors now show the parser's message and line number instead of a bare `format error`.
+>
 > **What's new in [v2.4.0](https://github.com/soulteary/nginx-formatter/releases/tag/v2.4.0)**
 >
 > - Fixed the WebUI silently deleting nginx variables. The formatted output was spliced into the page with `regexp.ReplaceAllString`, where `$name` is a capture-group reference, so `$host`, `$remote_addr` and `$upstream_addr` were replaced with empty strings.
@@ -53,7 +66,7 @@ If you use docker, you can use the following command ([DockerHub](https://hub.do
 
 ```bash
 docker pull soulteary/nginx-formatter:latest
-docker pull soulteary/nginx-formatter:v2.4.0
+docker pull soulteary/nginx-formatter:v2.5.0
 ```
 
 ### Homebrew
@@ -126,11 +139,16 @@ Use different indentation symbols (you can use spaces, tabs, `space`, `tab`, `\s
 
 ### CLI Usage
 
-Format the configuration file in the specified directory:
+Format the configuration file in the specified directory. Without `--output` the
+files are formatted in place, matching single-file behaviour:
 
 ```bash
 ./nginx-formatter format -i ./your-dir-path
 ```
+
+Symbolic links are reported and skipped rather than followed, so the usual
+`sites-enabled` → `sites-available` layout is formatted exactly once, through
+the real file, and the links are left intact.
 
 Format a directory and save it in a new directory:
 
@@ -173,6 +191,13 @@ specified the port:
 
 ```bash
 ./nginx-formatter serve -p 8123 -n 4 -c space
+```
+
+The WebUI binds every interface by default so the Docker usage below works.
+Restrict it to this machine with `--host`:
+
+```bash
+./nginx-formatter serve --host 127.0.0.1
 ```
 
 ### Version
@@ -252,6 +277,7 @@ Flags:
 
 ```bash
   -c, --char string   Default indent char the WebUI applies (space/tab/\s/\t) (default " ")
+      --host string   Address to bind (default: all interfaces)
   -n, --indent int    Default indent size the WebUI applies (default 2)
   -p, --port int      WebUI port (default 8080)
 ```

@@ -1,13 +1,21 @@
 package server
 
 import (
-	"fmt"
+	"net"
+	"strconv"
 
 	"github.com/gofiber/fiber/v3"
 )
 
-func Launch(port int, indent int, char string, fn func(s string, indent int, char string) (string, error)) error {
-	app := fiber.New()
+// MaxBodyBytes bounds the size of a POST /format body. The route is
+// unauthenticated, so without a cap one request can make the process allocate
+// arbitrarily much. Real nginx configurations are a few tens of kilobytes.
+const MaxBodyBytes = 1 << 20 // 1 MiB
+
+// Launch starts the WebUI on host:port. host may be empty, in which case the
+// listener binds every interface.
+func Launch(host string, port int, indent int, char string, fn func(s string, indent int, char string) (string, error)) error {
+	app := fiber.New(fiber.Config{BodyLimit: MaxBodyBytes})
 
 	// GET / always serves the pristine document. The formatted result is
 	// returned directly from POST /format instead of being parked in a
@@ -33,5 +41,5 @@ func Launch(port int, indent int, char string, fn func(s string, indent int, cha
 		return c.Send(CACHE_SCRIPT)
 	})
 
-	return app.Listen(fmt.Sprintf(":%d", port), fiber.ListenConfig{DisableStartupMessage: true})
+	return app.Listen(net.JoinHostPort(host, strconv.Itoa(port)), fiber.ListenConfig{DisableStartupMessage: true})
 }

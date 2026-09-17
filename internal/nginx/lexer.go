@@ -13,6 +13,21 @@ type Lexer struct {
 	input []rune
 	pos   int
 	line  int
+	err   error // first lexical error encountered, reported by Parse
+}
+
+// Err returns the first lexical error encountered, if any. A malformed token
+// (an unterminated string or "${") does not stop token production — Next keeps
+// returning tokens so the parser's control flow is unchanged — but Parse fails
+// rather than emitting a "repaired" config. Silently accepting these produced
+// output that never converged: each pass appended another ";".
+func (l *Lexer) Err() error { return l.err }
+
+// fail records the first lexical error.
+func (l *Lexer) fail(err error) {
+	if l.err == nil {
+		l.err = err
+	}
 }
 
 // NewLexer creates a Lexer over the given source string.
@@ -47,9 +62,19 @@ func isSpace(c rune) bool {
 	return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f' || c == '\v'
 }
 
-// isDelimiter reports whether c terminates a bare ident token.
-func isDelimiter(c rune) bool {
-	return c == 0 || isSpace(c) || c == ';' || c == '{' || c == '}' || c == '#' || c == '"' || c == '\''
+// isIdentBreak reports whether c terminates a bare word that is already in
+// progress.
+//
+// This mirrors nginx's own tokenizer (ngx_conf_read_token): once a token has
+// started, only whitespace, ";" and "{" end it. The characters "}", "#", '"'
+// and "'" are special only at the START of a token — Lexer.Next dispatches on
+// those before lexIdent is ever called — so mid-word they are ordinary
+// characters. Treating them as terminators here would split a single nginx
+// argument into several, and the printer would then rejoin the pieces with
+// spaces, changing a directive's argument count (e.g. sub_filter href="/a"
+// becoming sub_filter href= "/a").
+func isIdentBreak(c rune) bool {
+	return c == 0 || isSpace(c) || c == ';' || c == '{'
 }
 
 // Next returns the next token from the input.
@@ -248,7 +273,7 @@ func (l *Lexer) lexString(startLine int) Token {
 	for {
 		c := l.peek()
 		if c == 0 {
-			// Unterminated string: return what we have; parser may still use it.
+			l.fail(fmt.Errorf("line %d: unterminated quoted string, missing closing %c", startLine, quote))
 			break
 		}
 		if c == '\\' {
@@ -295,6 +320,9 @@ func (l *Lexer) lexIdent(startLine int) Token {
 				}
 				sb = append(sb, l.next())
 			}
+			if depth > 0 {
+				l.fail(fmt.Errorf("line %d: unterminated variable reference, missing closing '}'", startLine))
+			}
 			continue
 		}
 		// A backslash escapes the next character (e.g. "\ " a literal space in a
@@ -302,12 +330,14 @@ func (l *Lexer) lexIdent(startLine int) Token {
 		// boundary. Kept verbatim so the escape is preserved on output.
 		if c == '\\' {
 			sb = append(sb, l.next()) // backslash
-			if l.peek() != 0 {
-				sb = append(sb, l.next()) // escaped char, kept verbatim
+			if l.peek() == 0 {
+				l.fail(fmt.Errorf("line %d: trailing backslash at end of input", startLine))
+				break
 			}
+			sb = append(sb, l.next()) // escaped char, kept verbatim
 			continue
 		}
-		if isDelimiter(c) {
+		if isIdentBreak(c) {
 			break
 		}
 		sb = append(sb, l.next())
