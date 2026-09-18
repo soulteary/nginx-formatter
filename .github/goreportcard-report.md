@@ -22,20 +22,20 @@
 
 ### gocyclo
 
-- `internal/cmd/quiet_test.go`
-  - Line 158: cyclomatic complexity 16 for function TestQuietCoversEveryProgressPath
-- `internal/nginx/printer.go`
-  - Line 117: cyclomatic complexity 24 for function longStringLines
 - `internal/nginx/lexer.go`
   - Line 125: cyclomatic complexity 23 for function (*Lexer).ReadRawBlock
 - `internal/nginx/parser.go`
   - Line 107: cyclomatic complexity 20 for function (*Parser).parseStatement
 - `internal/updater/updater.go`
-  - Line 459: cyclomatic complexity 19 for function UpdateConfInDirMode
+  - Line 467: cyclomatic complexity 19 for function UpdateConfInDirMode
 - `internal/updater/update_test.go`
   - Line 62: cyclomatic complexity 17 for function TestUpdateConfFile
 - `internal/updater/diff.go`
   - Line 107: cyclomatic complexity 17 for function groupHunks
+- `internal/cmd/quiet_test.go`
+  - Line 158: cyclomatic complexity 16 for function TestQuietCoversEveryProgressPath
+- `internal/nginx/printer.go`
+  - Line 117: cyclomatic complexity 24 for function longStringLines
 
 ---
 
