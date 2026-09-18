@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path"
@@ -14,6 +15,11 @@ import (
 
 	"github.com/soulteary/nginx-formatter/internal/nginx"
 )
+
+// Out receives the per-file progress lines. It is a variable so `--quiet` can
+// point it at io.Discard; errors are unaffected, they travel back as values
+// and are reported by the caller on stderr.
+var Out io.Writer = os.Stdout
 
 // defaultFileMode is used when creating a file that does not already exist.
 // Configuration files must stay readable by the account nginx runs its workers
@@ -44,7 +50,7 @@ func ScanFiles(rootDir string) ([]string, error) {
 			// One unreadable entry must not abort the whole scan: a single
 			// permission-denied directory would otherwise mean nothing at all
 			// gets formatted.
-			fmt.Printf("Skipping %s: %v\n", rel, err)
+			fmt.Fprintf(Out, "Skipping %s: %v\n", rel, err)
 			if d != nil && d.IsDir() {
 				return fs.SkipDir
 			}
@@ -57,7 +63,7 @@ func ScanFiles(rootDir string) ([]string, error) {
 			return nil
 		}
 		if d.Type()&fs.ModeSymlink != 0 {
-			fmt.Printf("Skipping %s: symbolic link\n", rel)
+			fmt.Fprintf(Out, "Skipping %s: symbolic link\n", rel)
 			return nil
 		}
 		files = append(files, rel)
@@ -131,7 +137,7 @@ func scanFilesExcluding(rootDir, excludeDir string) ([]string, error) {
 	kept := files[:0]
 	for _, f := range files {
 		if strings.HasPrefix(f, prefix) {
-			fmt.Printf("Skipping %s: inside the output directory\n", f)
+			fmt.Fprintf(Out, "Skipping %s: inside the output directory\n", f)
 			continue
 		}
 		kept = append(kept, f)
@@ -337,7 +343,7 @@ func UpdateConfFile(inputFile string, output string, indent int, indentChar stri
 	// untrusted-path file-inclusion risk. Suppress gosec G304 accordingly.
 	buf, err := os.ReadFile(inputFile) // #nosec G304
 	if err != nil {
-		fmt.Printf("Formatter Nginx Conf %s failed, can not open the file: %v\n", inputFile, err)
+		fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not open the file: %v\n", inputFile, err)
 		return err
 	}
 
@@ -349,32 +355,32 @@ func UpdateConfFile(inputFile string, output string, indent int, indentChar stri
 
 	modifiedData, err := fn(string(buf), indent, indentChar)
 	if err != nil {
-		fmt.Printf("Formatter Nginx Conf %s failed, can not format the file: %v\n", inputFile, err)
+		fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not format the file: %v\n", inputFile, err)
 		return err
 	}
 
 	target, err := resolveTarget(inputFile, output)
 	if err != nil {
-		fmt.Printf("Formatter Nginx Conf %s failed, can not prepare the save dir: %v\n", inputFile, err)
+		fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not prepare the save dir: %v\n", inputFile, err)
 		return err
 	}
 
 	// Rewriting a file whose content is already correct would bump its mtime
 	// for nothing, waking inotify watchers, config reloaders and make.
 	if target == inputFile && modifiedData == string(buf) {
-		fmt.Printf("Formatter Nginx Conf %s Successed (already formatted)\n", target)
+		fmt.Fprintf(Out, "Formatter Nginx Conf %s Successed (already formatted)\n", target)
 		return nil
 	}
 
 	if err := writeFileAtomic(target, []byte(modifiedData)); err != nil {
-		fmt.Printf("Formatter Nginx Conf %s failed, can not save the file: %v\n", target, err)
+		fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not save the file: %v\n", target, err)
 		return err
 	}
 
 	if hadBOM {
 		reportBOM(inputFile, target, target == inputFile)
 	}
-	fmt.Printf("Formatter Nginx Conf %s Successed\n", target)
+	fmt.Fprintf(Out, "Formatter Nginx Conf %s Successed\n", target)
 	return nil
 }
 
@@ -387,10 +393,10 @@ func UpdateConfFile(inputFile string, output string, indent int, indentChar stri
 // claims an edit to a file this run never opened for writing.
 func reportBOM(input, target string, inPlace bool) {
 	if inPlace {
-		fmt.Printf("Formatter Nginx Conf %s had a UTF-8 BOM; removed it (nginx rejects a config that starts with one)\n", target)
+		fmt.Fprintf(Out, "Formatter Nginx Conf %s had a UTF-8 BOM; removed it (nginx rejects a config that starts with one)\n", target)
 		return
 	}
-	fmt.Printf("Formatter Nginx Conf %s had a UTF-8 BOM; %s was written without one, the input is unchanged\n", input, target)
+	fmt.Fprintf(Out, "Formatter Nginx Conf %s had a UTF-8 BOM; %s was written without one, the input is unchanged\n", input, target)
 }
 
 func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar string, fn func(s string, indent int, char string) (string, error)) error {
@@ -410,7 +416,7 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 	defer func() { _ = inRoot.Close() }()
 
 	if err := os.MkdirAll(outputDir, 0750); err != nil {
-		fmt.Printf("Formatter Nginx Conf failed, can not prepare the save dir %s: %v\n", outputDir, err)
+		fmt.Fprintf(Out, "Formatter Nginx Conf failed, can not prepare the save dir %s: %v\n", outputDir, err)
 		return err
 	}
 	outRoot, err := os.OpenRoot(outputDir)
@@ -426,7 +432,7 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 	for _, rel := range files {
 		buf, err := inRoot.ReadFile(rel)
 		if err != nil {
-			fmt.Printf("Formatter Nginx Conf %s failed, can not open the file: %v\n", rel, err)
+			fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not open the file: %v\n", rel, err)
 			failed = append(failed, rel)
 			continue
 		}
@@ -435,26 +441,26 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 
 		modifiedData, err := fn(string(buf), indent, indentChar)
 		if err != nil {
-			fmt.Printf("Formatter Nginx Conf %s failed, can not format the file: %v\n", rel, err)
+			fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not format the file: %v\n", rel, err)
 			failed = append(failed, rel)
 			continue
 		}
 
 		if dir := filepath.Dir(rel); dir != "." {
 			if err := outRoot.MkdirAll(dir, 0750); err != nil {
-				fmt.Printf("Formatter Nginx Conf %s failed, can not prepare the save dir: %v\n", rel, err)
+				fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not prepare the save dir: %v\n", rel, err)
 				failed = append(failed, rel)
 				continue
 			}
 		}
 
 		if sameTree && modifiedData == string(buf) {
-			fmt.Printf("Formatter Nginx Conf %s Successed (already formatted)\n", rel)
+			fmt.Fprintf(Out, "Formatter Nginx Conf %s Successed (already formatted)\n", rel)
 			continue
 		}
 
 		if err := writeRootFileAtomic(outRoot, rel, []byte(modifiedData)); err != nil {
-			fmt.Printf("Formatter Nginx Conf %s failed, can not save the file: %v\n", rel, err)
+			fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not save the file: %v\n", rel, err)
 			failed = append(failed, rel)
 			continue
 		}
@@ -462,7 +468,7 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 		if hadBOM {
 			reportBOM(rel, filepath.Join(outputDir, rel), sameTree)
 		}
-		fmt.Printf("Formatter Nginx Conf %s Successed\n", rel)
+		fmt.Fprintf(Out, "Formatter Nginx Conf %s Successed\n", rel)
 	}
 
 	if len(failed) > 0 {

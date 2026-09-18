@@ -33,6 +33,11 @@ func captureOut(t *testing.T, fn func()) string {
 	}
 	saved := os.Stdout
 	os.Stdout = w
+	// updater.Out is bound to os.Stdout at init, so it keeps pointing at the
+	// real one unless it is redirected too -- reassigning os.Stdout alone lets
+	// every notice written through Out escape the capture.
+	savedOut := updater.Out
+	updater.Out = w
 	done := make(chan string, 1)
 	go func() {
 		var sb strings.Builder
@@ -48,6 +53,7 @@ func captureOut(t *testing.T, fn func()) string {
 	}()
 	fn()
 	os.Stdout = saved
+	updater.Out = savedOut
 	_ = w.Close()
 	return <-done
 }
