@@ -21,8 +21,10 @@ func newFormatCmd() *cobra.Command {
 		Use:   "format",
 		Short: "Format Nginx configuration files in a directory or a single file",
 		Long: "Format Nginx configuration files.\n\n" +
-			"When --input points to a directory, every .conf file inside is formatted;\n" +
-			"symbolic links are reported and skipped rather than followed.\n" +
+			"When --input points to a directory, every .conf file inside is formatted,\n" +
+			"plus sites-enabled/default and sites-available/default (the Debian and\n" +
+			"Ubuntu site file, which has no extension); symbolic links are reported\n" +
+			"and skipped rather than followed.\n" +
 			"When --input points to a file, only that file is formatted (any extension).\n\n" +
 			"With --output empty, both modes format in place.\n\n" +
 			"The --output value has three meanings in single-file mode:\n" +
