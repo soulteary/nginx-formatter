@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/soulteary/nginx-formatter/internal/nginx"
 )
 
 // Out receives the per-file progress lines. It is a variable so `--quiet` can
@@ -135,7 +137,7 @@ func scanFilesExcluding(rootDir, excludeDir string) ([]string, error) {
 	kept := files[:0]
 	for _, f := range files {
 		if strings.HasPrefix(f, prefix) {
-			fmt.Printf("Skipping %s: inside the output directory\n", f)
+			fmt.Fprintf(Out, "Skipping %s: inside the output directory\n", f)
 			continue
 		}
 		kept = append(kept, f)
@@ -345,6 +347,12 @@ func UpdateConfFile(inputFile string, output string, indent int, indentChar stri
 		return err
 	}
 
+	// Recorded now, reported only once something has actually been written.
+	// Announcing the removal up front says "removing it" on the paths where
+	// nothing is removed: a file that fails to parse is left exactly as it
+	// was, BOM included.
+	hadBOM := nginx.HasBOM(string(buf))
+
 	modifiedData, err := fn(string(buf), indent, indentChar)
 	if err != nil {
 		fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not format the file: %v\n", inputFile, err)
@@ -360,7 +368,7 @@ func UpdateConfFile(inputFile string, output string, indent int, indentChar stri
 	// Rewriting a file whose content is already correct would bump its mtime
 	// for nothing, waking inotify watchers, config reloaders and make.
 	if target == inputFile && modifiedData == string(buf) {
-		fmt.Printf("Formatter Nginx Conf %s Successed (already formatted)\n", target)
+		fmt.Fprintf(Out, "Formatter Nginx Conf %s Successed (already formatted)\n", target)
 		return nil
 	}
 
@@ -369,8 +377,26 @@ func UpdateConfFile(inputFile string, output string, indent int, indentChar stri
 		return err
 	}
 
+	if hadBOM {
+		reportBOM(inputFile, target, target == inputFile)
+	}
 	fmt.Fprintf(Out, "Formatter Nginx Conf %s Successed\n", target)
 	return nil
+}
+
+// reportBOM describes what happened to a byte order mark, after the fact.
+//
+// The two cases are genuinely different and the distinction matters to anyone
+// reading the log: formatting in place removes the mark from the user's own
+// file, while writing to a separate target leaves the input untouched and
+// simply produces a copy without one. Saying "removing it" in the second case
+// claims an edit to a file this run never opened for writing.
+func reportBOM(input, target string, inPlace bool) {
+	if inPlace {
+		fmt.Fprintf(Out, "Formatter Nginx Conf %s had a UTF-8 BOM; removed it (nginx rejects a config that starts with one)\n", target)
+		return
+	}
+	fmt.Fprintf(Out, "Formatter Nginx Conf %s had a UTF-8 BOM; %s was written without one, the input is unchanged\n", input, target)
 }
 
 func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar string, fn func(s string, indent int, char string) (string, error)) error {
@@ -411,6 +437,8 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 			continue
 		}
 
+		hadBOM := nginx.HasBOM(string(buf))
+
 		modifiedData, err := fn(string(buf), indent, indentChar)
 		if err != nil {
 			fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not format the file: %v\n", rel, err)
@@ -427,7 +455,7 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 		}
 
 		if sameTree && modifiedData == string(buf) {
-			fmt.Printf("Formatter Nginx Conf %s Successed (already formatted)\n", rel)
+			fmt.Fprintf(Out, "Formatter Nginx Conf %s Successed (already formatted)\n", rel)
 			continue
 		}
 
@@ -437,6 +465,9 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 			continue
 		}
 
+		if hadBOM {
+			reportBOM(rel, filepath.Join(outputDir, rel), sameTree)
+		}
 		fmt.Fprintf(Out, "Formatter Nginx Conf %s Successed\n", rel)
 	}
 
