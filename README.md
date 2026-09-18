@@ -12,6 +12,22 @@ Nginx configuration formatter ~10MB size, support CLI, WebUI, x86, ARM, Linux, m
 
 <img src=".github/preview.png">
 
+> **What's new in [v2.6.0](https://github.com/soulteary/nginx-formatter/releases/tag/v2.6.0)**
+>
+> - Embedded scripts are now opaque to the printer's text passes. Everything between Lua long brackets (`[[ ]]`, `[=[ ]=]`, `--[[ ]]`) is string content, but the whole-document passes could not tell nginx structure from embedded script: blank runs inside a long string were collapsed, trailing spaces were trimmed, the body was re-indented, and a blank line was injected after every line starting with `}` — which is how a Lua table closes. `*_by_lua_block` bodies now round-trip byte for byte, while ordinary Lua outside a bracket is still normalized to the block indent.
+> - CRLF files keep their line endings. The printer joins structural lines with `\n`, but a `\r` inside a comment, a raw block body or a multi-line quoted string is part of that token's text, so the result came back with *mixed* endings. Input is normalized to LF for parsing and converted back afterwards.
+> - A leading UTF-8 BOM is removed. Windows editors add one silently and nginx has no idea what it is — the first directive's name became `<U+FEFF>server` rather than `server`, so nginx refused the file with `unknown directive` while the formatter reported success. The removal is reported per file, and only once it has actually happened: a file that fails to parse is left alone and nothing is claimed about it.
+> - `sites-available/default` and `sites-enabled/default` are formatted. The scan set was `*.conf` only, so on Debian and Ubuntu the most common site file there is — and the only one with no extension — was skipped without a word. A file named `default` anywhere else in the tree is still left alone.
+> - `nginx-formatter format /etc/nginx` now formats the path you named. The positional argument was parsed and silently discarded, so it walked away and reformatted the *working directory* instead, exit code 0.
+> - **Behavior change:** the container-root guard exits non-zero. `format` inside Docker with the working directory at `/` printed its hint and exited **0**, so a CI job saw a clean run when nothing had been formatted — usually caused by a forgotten `-v` mount, which is exactly the case a pipeline should catch.
+> - **Behavior change:** `serve --port 65535` is accepted. The guard read `port >= 65535` while its message promised everything "within 65535"; the accepted range is now stated as `1025..65535` and enforced as written.
+> - An output directory nested inside the input tree is excluded from the scan, instead of being re-ingested on the next run and nesting one level deeper each time (`out/`, `out/out/`, ...).
+> - Long filenames format again, fixing a v2.5.0 regression: the temporary file used for the atomic write is 16-22 bytes longer than its target, so a legal `.conf` name could push it past `NAME_MAX` and the file could not be formatted at all.
+> - New: `--check` lists the files that are not formatted and exits 1 if any are (the `gofmt -l` shape), and `--diff` prints a unified diff of what would change. Neither writes anything, and neither creates the output directory.
+> - New: `--input -` reads stdin and writes stdout, for an editor's format-on-save hook.
+> - New: `--quiet` / `-q` keeps the banner and progress narration off stdout. Errors are unaffected — they still go to stderr and still exit non-zero.
+> - stdout is now usable by a program. `--check`, `--diff` and stdin own it, so the banner, the progress narration, the scan's skip notices and the per-file failure lines all go to stderr or are suppressed there. `--quiet` never swallows a *result*: `--check -q` still prints the file list.
+
 > **What's new in [v2.5.0](https://github.com/soulteary/nginx-formatter/releases/tag/v2.5.0)**
 >
 > - Fixed several cases where formatting silently corrupted the configuration it overwrote. A quote inside a bare word (`sub_filter href="/old" href="/new";`, `alias /data/o'brien/;`) was treated as a token boundary and the pieces were rejoined with spaces, changing the directive's argument count so nginx refused to load the file. Bare-word termination now matches nginx's own tokenizer.
@@ -228,6 +244,47 @@ which is what an editor's format-on-save hook expects:
 cat nginx.conf | ./nginx-formatter format -i -
 ```
 
+### Quiet output
+
+`--quiet` / `-q` keeps the banner and the per-file progress narration off
+stdout. It is a persistent flag, so it works on every subcommand:
+
+```bash
+./nginx-formatter format -i ./conf.d --quiet
+```
+
+Errors are deliberately not suppressed. They go to stderr and still exit
+non-zero, so a pipeline keeps a clean stdout without losing the reason a run
+failed:
+
+```bash
+$ ./nginx-formatter format -i broken.conf -q
+2026/09/18 12:05:13 line 2: unexpected EOF, missing '}'
+$ echo $?
+1
+```
+
+`--quiet` never swallows a **result**. `--check` still prints its file list,
+`--diff` still prints its patch, and `-i -` still prints the formatted
+configuration — the flag removes narration, not the output you asked for.
+
+### Byte order marks
+
+Windows editors add a UTF-8 BOM silently, and nginx has no idea what it is:
+with one present the first directive's name is `<U+FEFF>server` rather than
+`server`, and nginx refuses the file with `unknown directive`. The formatter
+removes it and says so, per file:
+
+```
+Formatter Nginx Conf bom.conf had a UTF-8 BOM; removed it (nginx rejects a config that starts with one)
+```
+
+Because that edits the file rather than only its formatting, the notice appears
+only once the removal has actually happened. A file that fails to parse is left
+exactly as it was, and with `--output` pointing elsewhere the notice names the
+written copy and says the input is unchanged. A BOM sequence anywhere other
+than the very start is ordinary content and is left alone.
+
 ### Version
 
 Print the version:
@@ -289,27 +346,36 @@ Available Commands:
 
 Flags:
   -h, --help      help for nginx-formatter
+  -q, --quiet     Suppress the banner and progress output (errors still go to stderr)
   -v, --version   version for nginx-formatter
 ```
 
 `format` flags:
 
 ```bash
-  -c, --char string     Indent char (space/tab/\s/\t) (default " ")
+  -c, --char \s         Indent char (space/tab/\s/`\t`) (default " ")
       --check           Do not write; list files that are not formatted and exit 1 if any
       --diff            Do not write; print a unified diff of what would change and exit 1 if any
+  -h, --help            help for format
   -n, --indent int      Indent size (default 2)
   -i, --input string    Input directory or file, or "-" for stdin (default: current directory)
   -o, --output string   Output directory or file path
+
+Global Flags:
+  -q, --quiet   Suppress the banner and progress output (errors still go to stderr)
 ```
 
 `serve` flags:
 
 ```bash
-  -c, --char string   Default indent char the WebUI applies (space/tab/\s/\t) (default " ")
+  -c, --char \s       Default indent char the WebUI applies (space/tab/\s/`\t`) (default " ")
+  -h, --help          help for serve
       --host string   Address to bind (default: all interfaces)
   -n, --indent int    Default indent size the WebUI applies (default 2)
   -p, --port int      WebUI port (default 8080)
+
+Global Flags:
+  -q, --quiet   Suppress the banner and progress output (errors still go to stderr)
 ```
 
 ## Contributing
