@@ -45,6 +45,14 @@ jobs:
       - name: Race detector
         run: go test -race ./...
 
+      # FuzzParseFormat asserts the two properties a formatter must hold:
+      # its output re-parses, and formatting is a fixed point. It found the
+      # unterminated-quote and trailing-backslash non-convergence bugs in
+      # seconds, so it earns a short run on every push rather than only
+      # being available to whoever remembers to invoke it.
+      - name: Fuzz the parse/format round trip
+        run: go test ./internal/nginx -run '^$' -fuzz=FuzzParseFormat -fuzztime=60s
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         with:

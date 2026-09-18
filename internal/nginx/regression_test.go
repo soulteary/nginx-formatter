@@ -207,3 +207,82 @@ func FuzzParseFormat(f *testing.F) {
 		}
 	})
 }
+
+// TestParseReportsLexicalErrors covers the three malformed-token paths that a
+// fuzzer found: each was previously accepted in silence and "repaired" with an
+// extra ";" on every run, so formatting never converged. They had no test of
+// their own — Lexer.fail sat at 0% coverage — and the fuzzer that found them
+// is not what guards them.
+func TestParseReportsLexicalErrors(t *testing.T) {
+	cases := map[string]string{
+		`a "unterminated`:  "unterminated quoted string",
+		"a 'unterminated":  "unterminated quoted string",
+		"a ${unterminated": "unterminated variable reference",
+		`a \`:              "trailing backslash",
+	}
+	for src, want := range cases {
+		t.Run(src, func(t *testing.T) {
+			_, err := Parse(src)
+			if err == nil {
+				t.Fatalf("Parse(%q) returned no error", src)
+			}
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("Parse(%q) = %v, want an error mentioning %q", src, err, want)
+			}
+		})
+	}
+}
+
+// TestLongStringContentIsVerbatim is the core guarantee for embedded scripts:
+// every byte between Lua long brackets is string content, so the printer must
+// not re-indent it, collapse blank runs in it, or trim its trailing spaces.
+func TestLongStringContentIsVerbatim(t *testing.T) {
+	src := "init_by_lua_block {\nlocal s = [[\nA\n\n\nB  \n]]\nngx.say(s)\n}\n"
+	out := format(t, src)
+
+	const want = "[[\nA\n\n\nB  \n]]"
+	if !strings.Contains(out, want) {
+		t.Errorf("long-string content was rewritten.\ngot:\n%s\nwant it to contain:\n%q", out, want)
+	}
+	if again := format(t, out); again != out {
+		t.Errorf("not idempotent:\npass1: %q\npass2: %q", out, again)
+	}
+}
+
+// TestLongStringVariants covers the bracket levels and the --[[ ]] comment
+// form, so the scanner is not just matching a bare "[[".
+func TestLongStringVariants(t *testing.T) {
+	for _, body := range []string{
+		"local s = [=[\n  keep   me\n]=]",
+		"local s = [==[\n\n\nx\n]==]",
+		"--[[\n   a long comment   \n]]",
+		`local q = "not [[ a bracket"` + "\nlocal y = 1",
+		"-- [[ in a line comment\nlocal y = 1",
+	} {
+		t.Run(body, func(t *testing.T) {
+			out := format(t, "init_by_lua_block {\n"+body+"\n}\n")
+			if again := format(t, out); again != out {
+				t.Errorf("not idempotent:\npass1: %q\npass2: %q", out, again)
+			}
+		})
+	}
+}
+
+// TestNoBlankLineInsideRawBlock guards the other half of the same fix: the
+// whole-document blank-line pass used to fire on any rendered line starting
+// with "}", including the "}" that closes a Lua table.
+func TestNoBlankLineInsideRawBlock(t *testing.T) {
+	out := format(t, "content_by_lua_block {\n  local t = {\n    a = 1,\n  }\n  ngx.say(\"x\")\n}\n")
+	if strings.Contains(out, "}\n\n  ngx.say") {
+		t.Errorf("a blank line was injected inside the Lua body:\n%s", out)
+	}
+}
+
+// TestRawBlockStillReindented guards against over-correcting: ordinary Lua
+// code outside a long bracket should still be normalized to the block indent.
+func TestRawBlockStillReindented(t *testing.T) {
+	out := format(t, "content_by_lua_block {\n        local x = 1\n        ngx.say(x)\n}\n")
+	if !strings.Contains(out, "\n  local x = 1\n") {
+		t.Errorf("Lua code outside a long bracket was not reindented:\n%s", out)
+	}
+}
