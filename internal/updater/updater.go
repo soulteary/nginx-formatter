@@ -11,6 +11,22 @@ import (
 	"strings"
 )
 
+// Mode selects what the updater does with the formatted result.
+type Mode int
+
+const (
+	// ModeWrite saves the result over the target. The default.
+	ModeWrite Mode = iota
+	// ModeCheck writes nothing and only reports which files would change.
+	ModeCheck
+	// ModeDiff writes nothing and prints a unified diff per changed file.
+	ModeDiff
+)
+
+// ErrNeedsFormatting is returned by ModeCheck and ModeDiff when at least one
+// file is not formatted, so the process exits non-zero and CI notices.
+var ErrNeedsFormatting = errors.New("some files are not formatted")
+
 // defaultFileMode is used when creating a file that does not already exist.
 // Configuration files must stay readable by the account nginx runs its workers
 // as, which is usually not the account that ran the formatter.
@@ -234,6 +250,11 @@ func writeRootFileAtomic(root *os.Root, rel string, data []byte) error {
 // UpdateConfFile formats a single file. Unlike UpdateConfInDir it does not
 // filter by the .conf suffix, so any file can be formatted.
 func UpdateConfFile(inputFile string, output string, indent int, indentChar string, fn func(s string, indent int, char string) (string, error)) error {
+	return UpdateConfFileMode(inputFile, output, indent, indentChar, ModeWrite, fn)
+}
+
+// UpdateConfFileMode is UpdateConfFile with an explicit Mode.
+func UpdateConfFileMode(inputFile string, output string, indent int, indentChar string, mode Mode, fn func(s string, indent int, char string) (string, error)) error {
 	// inputFile is provided directly by the user running this local CLI tool via
 	// the --input flag, so reading it is the intended behavior rather than an
 	// untrusted-path file-inclusion risk. Suppress gosec G304 accordingly.
@@ -247,6 +268,14 @@ func UpdateConfFile(inputFile string, output string, indent int, indentChar stri
 	if err != nil {
 		fmt.Printf("Formatter Nginx Conf %s failed, can not format the file: %v\n", inputFile, err)
 		return err
+	}
+
+	if mode != ModeWrite {
+		if modifiedData == string(buf) {
+			return nil
+		}
+		reportUnformatted(mode, inputFile, string(buf), modifiedData)
+		return ErrNeedsFormatting
 	}
 
 	target, err := resolveTarget(inputFile, output)
@@ -265,6 +294,11 @@ func UpdateConfFile(inputFile string, output string, indent int, indentChar stri
 }
 
 func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar string, fn func(s string, indent int, char string) (string, error)) error {
+	return UpdateConfInDirMode(rootDir, outputDir, indent, indentChar, ModeWrite, fn)
+}
+
+// UpdateConfInDirMode is UpdateConfInDir with an explicit Mode.
+func UpdateConfInDirMode(rootDir string, outputDir string, indent int, indentChar string, mode Mode, fn func(s string, indent int, char string) (string, error)) error {
 	files, err := ScanFiles(rootDir)
 	if err != nil {
 		return err
@@ -276,20 +310,26 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 	}
 	defer func() { _ = inRoot.Close() }()
 
-	if err := os.MkdirAll(outputDir, 0750); err != nil {
-		fmt.Printf("Formatter Nginx Conf failed, can not prepare the save dir %s: %v\n", outputDir, err)
-		return err
+	// ModeCheck and ModeDiff write nothing, so they must not create the output
+	// directory either — a read-only mode with a side effect is a trap in CI.
+	var outRoot *os.Root
+	if mode == ModeWrite {
+		if err := os.MkdirAll(outputDir, 0750); err != nil {
+			fmt.Printf("Formatter Nginx Conf failed, can not prepare the save dir %s: %v\n", outputDir, err)
+			return err
+		}
+		outRoot, err = os.OpenRoot(outputDir)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = outRoot.Close() }()
 	}
-	outRoot, err := os.OpenRoot(outputDir)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = outRoot.Close() }()
 
 	// A file that cannot be read or parsed is reported and skipped, so one bad
 	// config no longer leaves the rest of the tree unprocessed. The failures
 	// are surfaced as a single error once every file has been attempted.
 	var failed []string
+	unformatted := false
 	for _, rel := range files {
 		buf, err := inRoot.ReadFile(rel)
 		if err != nil {
@@ -302,6 +342,14 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 		if err != nil {
 			fmt.Printf("Formatter Nginx Conf %s failed, can not format the file: %v\n", rel, err)
 			failed = append(failed, rel)
+			continue
+		}
+
+		if mode != ModeWrite {
+			if modifiedData != string(buf) {
+				reportUnformatted(mode, rel, string(buf), modifiedData)
+				unformatted = true
+			}
 			continue
 		}
 
@@ -326,5 +374,18 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 		return fmt.Errorf("%d of %d file(s) could not be formatted: %s",
 			len(failed), len(files), strings.Join(failed, ", "))
 	}
+	if unformatted {
+		return ErrNeedsFormatting
+	}
 	return nil
+}
+
+// reportUnformatted prints what ModeCheck and ModeDiff owe the caller: a bare
+// path for check (the gofmt -l shape, easy to pipe), a unified diff for diff.
+func reportUnformatted(mode Mode, name, before, after string) {
+	if mode == ModeDiff {
+		fmt.Print(UnifiedDiff(name, before, after))
+		return
+	}
+	fmt.Println(name)
 }

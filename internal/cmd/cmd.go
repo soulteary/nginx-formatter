@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"strconv"
@@ -37,6 +38,35 @@ func resolveOutputDefault(src string, output string) (string, error) {
 	}
 
 	return src, nil
+}
+
+// resolveIndentCharQuiet is resolveIndentChar with its narration suppressible,
+// so --check and --diff keep stdout machine-readable.
+func resolveIndentCharQuiet(indentChar string, report bool) string {
+	if report {
+		return resolveIndentChar(indentChar)
+	}
+	switch indentChar {
+	case "space", "\\s":
+		return " "
+	case "tab", "\\t":
+		return "\t"
+	}
+	if indentChar != "\t" && indentChar != " " {
+		return define.DEFAULT_INDENT_CHAR
+	}
+	return indentChar
+}
+
+// resolveIndentQuiet is resolveIndent with its narration suppressible.
+func resolveIndentQuiet(indent int, report bool) int {
+	if report {
+		return resolveIndent(indent)
+	}
+	if indent <= 0 {
+		return define.DEFAULT_INDENT_SIZE
+	}
+	return indent
 }
 
 // resolveIndentChar normalizes and validates the indent char, falling back to
@@ -97,16 +127,68 @@ func resolvePort(port int) int {
 // runFormat resolves inputs and formats the target file or directory, reusing
 // the existing updater logic.
 func runFormat(input string, output string, indent int, indentChar string) error {
+	return runFormatMode(input, output, indent, indentChar, updater.ModeWrite)
+}
+
+// formatStdin reads a configuration from stdin and writes the result to
+// stdout, the shape an editor's format-on-save hook expects. Nothing else may
+// go to stdout on this path, so the usual progress lines are skipped.
+func formatStdin(indent int, indentChar string, mode updater.Mode) error {
+	in, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return err
+	}
+	out, err := formatter.Formatter(string(in), indent, indentChar)
+	if err != nil {
+		return err
+	}
+
+	switch mode {
+	case updater.ModeCheck:
+		if out != string(in) {
+			fmt.Println("<stdin>")
+			return updater.ErrNeedsFormatting
+		}
+	case updater.ModeDiff:
+		if d := updater.UnifiedDiff("<stdin>", string(in), out); d != "" {
+			fmt.Print(d)
+			return updater.ErrNeedsFormatting
+		}
+	default:
+		_, err = os.Stdout.WriteString(out)
+	}
+	return err
+}
+
+// runFormatMode is runFormat with an explicit updater.Mode.
+func runFormatMode(input string, output string, indent int, indentChar string, mode updater.Mode) error {
+	// --check and --diff exist to be read by something other than a human: a
+	// file list to pipe, a diff to apply. Their stdout carries only that, so
+	// the progress narration is skipped rather than interleaved with it.
+	report := mode == updater.ModeWrite
+	say := func(a ...any) {
+		if report {
+			fmt.Println(a...)
+		}
+	}
+
+	// "-" is the conventional spelling for "read stdin, write stdout". Its
+	// stdout carries the formatted configuration and nothing else, so the
+	// narration is off here even when writing.
+	if input == "-" {
+		return formatStdin(resolveIndentQuiet(indent, false), resolveIndentCharQuiet(indentChar, false), mode)
+	}
+
 	var src string
 	if input == "" {
 		dir, err := os.Getwd()
 		if err != nil {
 			return err
 		}
-		fmt.Println("No input directory specified, use the current working directory:", dir)
+		say("No input directory specified, use the current working directory:", dir)
 		src = dir
 	} else {
-		fmt.Println("Specify the working directory as:", input)
+		say("Specify the working directory as:", input)
 		src = input
 	}
 
@@ -116,17 +198,19 @@ func runFormat(input string, output string, indent int, indentChar string) error
 	}
 	if output == "" {
 		if dest == "" {
-			fmt.Println("No output specified, will overwrite the input file in place")
+			say("No output specified, will overwrite the input file in place")
 		} else {
-			fmt.Println("No output directory specified, will format the input directory in place:", dest)
+			say("No output directory specified, will format the input directory in place:", dest)
 		}
 	} else {
-		fmt.Println("Specify the output directory as:", output)
+		say("Specify the output directory as:", output)
 	}
 
-	indent = resolveIndent(indent)
-	indentChar = resolveIndentChar(indentChar)
-	fmt.Println()
+	indent = resolveIndentQuiet(indent, report)
+	indentChar = resolveIndentCharQuiet(indentChar, report)
+	if report {
+		fmt.Println()
+	}
 
 	checker.InDockerAndWorkDirIsRoot(src)
 
@@ -136,9 +220,9 @@ func runFormat(input string, output string, indent int, indentChar string) error
 	}
 
 	if info.IsDir() {
-		return updater.UpdateConfInDir(src, dest, indent, indentChar, formatter.Formatter)
+		return updater.UpdateConfInDirMode(src, dest, indent, indentChar, mode, formatter.Formatter)
 	}
-	return updater.UpdateConfFile(src, dest, indent, indentChar, formatter.Formatter)
+	return updater.UpdateConfFileMode(src, dest, indent, indentChar, mode, formatter.Formatter)
 }
 
 // runServe launches the WebUI, reusing the existing server logic.
@@ -157,6 +241,23 @@ func runServe(host string, port int, indent int, indentChar string) error {
 	fmt.Println()
 
 	return server.Launch(host, port, indent, indentChar, formatter.Formatter)
+}
+
+// machineReadable reports whether this invocation's stdout is meant for a
+// program rather than a person: --check lists paths to pipe, --diff emits a
+// patch, and "-i -" streams the formatted configuration itself. The banner
+// would corrupt all three.
+func machineReadable(cmd *cobra.Command) bool {
+	if b, err := cmd.Flags().GetBool("check"); err == nil && b {
+		return true
+	}
+	if b, err := cmd.Flags().GetBool("diff"); err == nil && b {
+		return true
+	}
+	if v, err := cmd.Flags().GetString("input"); err == nil && v == "-" {
+		return true
+	}
+	return false
 }
 
 // newRootCmd builds the root command, mounts the semantic subcommands, and
@@ -191,7 +292,7 @@ func newRootCmd() *cobra.Command {
 		// Print the startup banner for every command except `version`,
 		// whose output already carries the version number.
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			if cmd.Name() != "version" {
+			if cmd.Name() != "version" && !machineReadable(cmd) {
 				fmt.Printf("Nginx Formatter %s\n\n", version.Version)
 			}
 		},

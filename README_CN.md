@@ -197,6 +197,27 @@ WebUI 默认监听所有网卡，以便下文的 Docker 用法正常工作。可
 ./nginx-formatter serve --host 127.0.0.1
 ```
 
+### CI：只检查不写入
+
+`--check` 会列出未格式化的文件，只要有就以 1 退出；`--diff` 则打印将要发生变更的
+unified diff。两者都不写任何文件，且 stdout 上只有这部分输出，可以直接管道使用：
+
+```bash
+# 只要有文件未格式化就让构建失败
+./nginx-formatter format -i ./conf.d --check
+
+# 查看具体会改动什么
+./nginx-formatter format -i ./conf.d --diff
+```
+
+### 标准输入 / 标准输出
+
+`--input -` 从 stdin 读取配置并把结果写到 stdout，这正是编辑器「保存时格式化」所需的形式：
+
+```bash
+cat nginx.conf | ./nginx-formatter format -i -
+```
+
 ### 查看版本
 
 打印版本号：
@@ -267,8 +288,10 @@ Flags:
 
 ```bash
   -c, --char string     Indent char (space/tab/\s/\t) (default " ")
+      --check           Do not write; list files that are not formatted and exit 1 if any
+      --diff            Do not write; print a unified diff of what would change and exit 1 if any
   -n, --indent int      Indent size (default 2)
-  -i, --input string    Input directory or file (default: current directory)
+  -i, --input string    Input directory or file, or "-" for stdin (default: current directory)
   -o, --output string   Output directory or file path
 ```
 

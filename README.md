@@ -200,6 +200,29 @@ Restrict it to this machine with `--host`:
 ./nginx-formatter serve --host 127.0.0.1
 ```
 
+### CI: check without writing
+
+`--check` reports which files are not formatted and exits 1 if any are; `--diff`
+prints a unified diff of what would change. Neither writes anything, and their
+stdout carries only that output, so it can be piped:
+
+```bash
+# Fail the build if anything is unformatted
+./nginx-formatter format -i ./conf.d --check
+
+# See exactly what would change
+./nginx-formatter format -i ./conf.d --diff
+```
+
+### stdin / stdout
+
+`--input -` reads the configuration from stdin and writes the result to stdout,
+which is what an editor's format-on-save hook expects:
+
+```bash
+cat nginx.conf | ./nginx-formatter format -i -
+```
+
 ### Version
 
 Print the version:
@@ -268,8 +291,10 @@ Flags:
 
 ```bash
   -c, --char string     Indent char (space/tab/\s/\t) (default " ")
+      --check           Do not write; list files that are not formatted and exit 1 if any
+      --diff            Do not write; print a unified diff of what would change and exit 1 if any
   -n, --indent int      Indent size (default 2)
-  -i, --input string    Input directory or file (default: current directory)
+  -i, --input string    Input directory or file, or "-" for stdin (default: current directory)
   -o, --output string   Output directory or file path
 ```
 
