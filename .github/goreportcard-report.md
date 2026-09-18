@@ -1,10 +1,10 @@
 # Go Report Card
 
-**Grade: A+** (98.2%)
+**Grade: A+** (98.3%)
 
 | Metric | Value |
 | ------ | ----- |
-| Files | 33 |
+| Files | 34 |
 | Issues | 5 |
 
 ## Checks
@@ -13,7 +13,7 @@
 | ----- | ----- |
 | gofmt | 100% |
 | go_vet | 100% |
-| gocyclo | 84% |
+| gocyclo | 85% |
 | ineffassign | 100% |
 | license | 100% |
 | misspell | 100% |
@@ -22,6 +22,8 @@
 
 ### gocyclo
 
+- `internal/nginx/printer.go`
+  - Line 117: cyclomatic complexity 24 for function longStringLines
 - `internal/nginx/lexer.go`
   - Line 125: cyclomatic complexity 23 for function (*Lexer).ReadRawBlock
 - `internal/nginx/parser.go`
@@ -30,8 +32,6 @@
   - Line 62: cyclomatic complexity 17 for function TestUpdateConfFile
 - `internal/cmd/quiet_test.go`
   - Line 158: cyclomatic complexity 16 for function TestQuietCoversEveryProgressPath
-- `internal/nginx/printer.go`
-  - Line 117: cyclomatic complexity 24 for function longStringLines
 
 ---
 
