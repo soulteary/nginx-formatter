@@ -32,6 +32,7 @@ func newServeCmd() *cobra.Command {
   nginx-formatter serve --host 127.0.0.1`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		Args:          cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runServe(host, port, indent, indentChar)
 		},

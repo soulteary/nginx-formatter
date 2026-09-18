@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/soulteary/nginx-formatter/internal/define"
@@ -86,14 +88,21 @@ func TestResolveIndentChar(t *testing.T) {
 }
 
 func TestResolvePort(t *testing.T) {
-	if got := resolvePort(80); got != define.DEFAULT_PORT {
-		t.Errorf("expected default port for low value, got %d", got)
+	rejected := []int{-1, 0, 80, 443, 1024, 65536, 70000}
+	for _, p := range rejected {
+		if got := resolvePort(p); got != define.DEFAULT_PORT {
+			t.Errorf("resolvePort(%d) = %d, want the default %d", p, got, define.DEFAULT_PORT)
+		}
 	}
-	if got := resolvePort(70000); got != define.DEFAULT_PORT {
-		t.Errorf("expected default port for high value, got %d", got)
-	}
-	if got := resolvePort(8123); got != 8123 {
-		t.Errorf("expected port 8123, got %d", got)
+
+	// 1025 and 65535 are the edges of the accepted range. 65535 used to be
+	// rejected by a ">= 65535" guard, contradicting the message that promised
+	// everything "within 65535".
+	accepted := []int{1025, 8123, 65535}
+	for _, p := range accepted {
+		if got := resolvePort(p); got != p {
+			t.Errorf("resolvePort(%d) = %d, want it accepted", p, got)
+		}
 	}
 }
 
@@ -219,4 +228,53 @@ func TestResolveIndentCharEscapeForms(t *testing.T) {
 	if got := resolveIndentChar(`\t`); got != "\t" {
 		t.Errorf(`resolveIndentChar("\\t") = %q, want a real tab`, got)
 	}
+}
+
+// TestFormatPositionalPath covers the silently-discarded positional argument.
+// `nginx-formatter format /etc/nginx` used to parse the path, drop it, and
+// recursively reformat the *working directory* instead, with exit code 0.
+func TestFormatPositionalPath(t *testing.T) {
+	t.Run("positional path is used as the input", func(t *testing.T) {
+		dir := t.TempDir()
+		target := filepath.Join(dir, "x.conf")
+		if err := os.WriteFile(target, []byte("a {\nb;\n}\n"), 0600); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+
+		cmd := newFormatCmd()
+		cmd.SetOut(io.Discard)
+		cmd.SetErr(io.Discard)
+		cmd.SetArgs([]string{dir})
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+
+		got, err := os.ReadFile(target)
+		if err != nil {
+			t.Fatalf("read: %v", err)
+		}
+		if !strings.Contains(string(got), "  b;") {
+			t.Errorf("the named path was not formatted: %q", got)
+		}
+	})
+
+	t.Run("rejects a positional path alongside --input", func(t *testing.T) {
+		cmd := newFormatCmd()
+		cmd.SetOut(io.Discard)
+		cmd.SetErr(io.Discard)
+		cmd.SetArgs([]string{"./a", "--input", "./b"})
+		if err := cmd.Execute(); err == nil {
+			t.Error("expected an error when both forms are given")
+		}
+	})
+
+	t.Run("rejects more than one positional path", func(t *testing.T) {
+		cmd := newFormatCmd()
+		cmd.SetOut(io.Discard)
+		cmd.SetErr(io.Discard)
+		cmd.SetArgs([]string{"./a", "./b"})
+		if err := cmd.Execute(); err == nil {
+			t.Error("expected an error for two positional paths")
+		}
+	})
 }

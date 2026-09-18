@@ -148,6 +148,10 @@ jobs:
 符号链接会被跳过并给出提示，而不是跟随。因此常见的 `sites-enabled` → `sites-available`
 布局只会通过真实文件格式化一次，链接结构保持不变。
 
+扫描范围是全部 `*.conf` 文件，外加直接位于 `sites-enabled` 或 `sites-available`
+目录下的 `default` —— 在 Debian 和 Ubuntu 上，这正是 nginx 软件包自带的站点配置，
+也是其中唯一没有扩展名的文件。其他位置上名为 `default` 的文件不会被处理。
+
 在新目录中保存格式化后的配置文件：
 
 ```bash
