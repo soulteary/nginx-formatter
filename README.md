@@ -150,6 +150,11 @@ Symbolic links are reported and skipped rather than followed, so the usual
 `sites-enabled` → `sites-available` layout is formatted exactly once, through
 the real file, and the links are left intact.
 
+The scanned set is every `*.conf` file, plus `default` when it sits directly in
+a `sites-enabled` or `sites-available` directory — on Debian and Ubuntu that is
+the site file the nginx package ships, and the only one with no extension. A
+file named `default` anywhere else is left alone.
+
 Format a directory and save it in a new directory:
 
 ```bash
