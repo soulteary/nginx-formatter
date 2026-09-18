@@ -12,6 +12,22 @@
 
 <img src=".github/preview.png">
 
+> **[v2.6.0](https://github.com/soulteary/nginx-formatter/releases/tag/v2.6.0) 更新说明**
+>
+> - 内嵌脚本对排版阶段不再透明。Lua 长括号（`[[ ]]`、`[=[ ]=]`、`--[[ ]]`）之间的每个字节都是字符串内容，但全文处理阶段无法区分 nginx 结构和内嵌脚本：长字符串里的连续空行被压缩、行尾空格被裁掉、内容被重新缩进，并且在每个以 `}` 开头的行后插入空行 —— 而 `}` 正是 Lua 表的收尾。现在 `*_by_lua_block` 的内容逐字节原样保留，长括号之外的普通 Lua 代码仍会规范化到块缩进。
+> - CRLF 文件保留原有换行符。排版阶段用 `\n` 连接结构行，但注释、原样块和跨行引号字符串中的 `\r` 属于 token 文本的一部分，因此结果会变成*混合*换行。现在输入会先规范化为 LF 再解析，之后转换回来。
+> - 移除开头的 UTF-8 BOM。Windows 编辑器会静默添加 BOM，而 nginx 并不认识它 —— 第一条指令的名字变成了 `<U+FEFF>server` 而非 `server`，nginx 以 `unknown directive` 拒绝加载，格式化工具却报告成功。移除会按文件提示，并且只在确实发生之后才提示：解析失败的文件不会被改动，也不会对它做任何声明。
+> - 会格式化 `sites-available/default` 和 `sites-enabled/default`。扫描范围此前只有 `*.conf`，因此在 Debian 和 Ubuntu 上最常见、也是唯一没有扩展名的站点配置被无声跳过。其他位置上名为 `default` 的文件仍不会被处理。
+> - `nginx-formatter format /etc/nginx` 现在会格式化你指定的路径。位置参数此前会被解析后悄悄丢弃，于是它转而递归格式化了*当前工作目录*，并返回退出码 0。
+> - **行为变更：** 容器根目录守卫改为非零退出。在 Docker 中于 `/` 执行 `format` 此前会打印提示并退出 **0**，于是 CI 认为运行成功，实际上什么都没格式化 —— 通常是忘记挂载 `-v`，而这正是流水线应当拦住的情况。
+> - **行为变更：** `serve --port 65535` 现在被接受。守卫写的是 `port >= 65535`，提示语却承诺"65535 以内"都可以；现在接受范围明确为 `1025..65535`，并按字面执行。
+> - 位于输入目录树内部的输出目录会被排除在扫描之外，不再在下次运行时被重新读入、每跑一次就多嵌套一层（`out/`、`out/out/`……）。
+> - 长文件名重新可以格式化，修复 v2.5.0 引入的回归：原子写入使用的临时文件名比目标长 16-22 字节，因此一个合法的 `.conf` 名字可能越过 `NAME_MAX`，导致该文件完全无法格式化。
+> - 新增：`--check` 列出未格式化的文件，只要存在就以 1 退出（即 `gofmt -l` 的形态）；`--diff` 打印将要发生改动的 unified diff。两者都不写入任何内容，也不会创建输出目录。
+> - 新增：`--input -` 从标准输入读取、写到标准输出，适用于编辑器的保存即格式化钩子。
+> - 新增：`--quiet` / `-q` 让横幅和进度信息不再进入标准输出。错误不受影响 —— 仍然输出到标准错误，仍然以非零码退出。
+> - 标准输出现在可以直接交给程序处理。`--check`、`--diff` 和标准输入模式独占它，因此横幅、进度信息、扫描的跳过提示以及逐文件的失败提示都改为输出到标准错误或被抑制。`--quiet` 绝不会吞掉*结果*：`--check -q` 依然会打印文件列表。
+
 > **[v2.5.0](https://github.com/soulteary/nginx-formatter/releases/tag/v2.5.0) 更新说明**
 >
 > - 修复多处「格式化会静默破坏被覆盖的配置」的问题。裸词中间的引号（`sub_filter href="/old" href="/new";`、`alias /data/o'brien/;`）此前被当作词边界切开，打印时又用空格拼回去，改变了指令的参数个数，导致 nginx 拒绝加载该配置。裸词的终止规则现已与 nginx 自身的分词器一致。
@@ -222,6 +238,42 @@ unified diff。两者都不写任何文件，且 stdout 上只有这部分输出
 cat nginx.conf | ./nginx-formatter format -i -
 ```
 
+### 安静模式
+
+`--quiet` / `-q` 让横幅和逐文件的进度信息不再进入标准输出。它是持久化参数，
+对所有子命令都生效：
+
+```bash
+./nginx-formatter format -i ./conf.d --quiet
+```
+
+错误不会被抑制，这是有意为之。它们输出到标准错误并且仍以非零码退出，
+因此流水线既能得到干净的标准输出，也不会丢失失败原因：
+
+```bash
+$ ./nginx-formatter format -i broken.conf -q
+2026/09/18 12:05:13 line 2: unexpected EOF, missing '}'
+$ echo $?
+1
+```
+
+`--quiet` 绝不会吞掉**结果**。`--check` 依然打印文件列表，`--diff` 依然打印补丁，
+`-i -` 依然打印格式化后的配置 —— 这个参数去掉的是进度叙述，而不是你要的输出。
+
+### 字节顺序标记（BOM）
+
+Windows 编辑器会静默添加 UTF-8 BOM，而 nginx 并不认识它：存在 BOM 时，
+第一条指令的名字是 `<U+FEFF>server` 而不是 `server`，nginx 会以
+`unknown directive` 拒绝该文件。格式化工具会移除它并按文件给出提示：
+
+```
+Formatter Nginx Conf bom.conf had a UTF-8 BOM; removed it (nginx rejects a config that starts with one)
+```
+
+由于这修改的是文件本身而不只是它的排版，提示只在移除确实发生之后才出现。
+解析失败的文件会原样保留；当 `--output` 指向别处时，提示会指明被写出的那份副本，
+并说明输入文件未被改动。位于文件开头以外的 BOM 字节序列属于普通内容，不会被处理。
+
 ### 查看版本
 
 打印版本号：
@@ -285,27 +337,36 @@ Available Commands:
 
 Flags:
   -h, --help      help for nginx-formatter
+  -q, --quiet     Suppress the banner and progress output (errors still go to stderr)
   -v, --version   version for nginx-formatter
 ```
 
 `format` 参数：
 
 ```bash
-  -c, --char string     Indent char (space/tab/\s/\t) (default " ")
+  -c, --char \s         Indent char (space/tab/\s/`\t`) (default " ")
       --check           Do not write; list files that are not formatted and exit 1 if any
       --diff            Do not write; print a unified diff of what would change and exit 1 if any
+  -h, --help            help for format
   -n, --indent int      Indent size (default 2)
   -i, --input string    Input directory or file, or "-" for stdin (default: current directory)
   -o, --output string   Output directory or file path
+
+Global Flags:
+  -q, --quiet   Suppress the banner and progress output (errors still go to stderr)
 ```
 
 `serve` 参数：
 
 ```bash
-  -c, --char string   Default indent char the WebUI applies (space/tab/\s/\t) (default " ")
+  -c, --char \s       Default indent char the WebUI applies (space/tab/\s/`\t`) (default " ")
+  -h, --help          help for serve
       --host string   Address to bind (default: all interfaces)
   -n, --indent int    Default indent size the WebUI applies (default 2)
   -p, --port int      WebUI port (default 8080)
+
+Global Flags:
+  -q, --quiet   Suppress the banner and progress output (errors still go to stderr)
 ```
 
 ## 参与贡献

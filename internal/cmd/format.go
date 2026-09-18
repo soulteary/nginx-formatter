@@ -91,7 +91,7 @@ func newFormatCmd() *cobra.Command {
 	}
 
 	flags := cmd.Flags()
-	flags.StringVarP(&input, "input", "i", define.DEFAULT_WORKDIR, "Input directory or file (default: current directory)")
+	flags.StringVarP(&input, "input", "i", define.DEFAULT_WORKDIR, `Input directory or file, or "-" for stdin (default: current directory)`)
 	flags.StringVarP(&output, "output", "o", define.DEFAULT_WORKDIR, "Output directory or file path")
 	flags.IntVarP(&indent, "indent", "n", define.DEFAULT_INDENT_SIZE, "Indent size")
 	flags.StringVarP(&indentChar, "char", "c", define.DEFAULT_INDENT_CHAR, "Indent char (space/tab/`\\s`/`\\t`)")
