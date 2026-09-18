@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/soulteary/nginx-formatter/internal/nginx"
 )
 
 // defaultFileMode is used when creating a file that does not already exist.
@@ -243,6 +245,10 @@ func UpdateConfFile(inputFile string, output string, indent int, indentChar stri
 		return err
 	}
 
+	if nginx.HasBOM(string(buf)) {
+		fmt.Printf("Formatter Nginx Conf %s contained a UTF-8 BOM; removing it (nginx rejects a config that starts with one)\n", inputFile)
+	}
+
 	modifiedData, err := fn(string(buf), indent, indentChar)
 	if err != nil {
 		fmt.Printf("Formatter Nginx Conf %s failed, can not format the file: %v\n", inputFile, err)
@@ -296,6 +302,10 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 			fmt.Printf("Formatter Nginx Conf %s failed, can not open the file: %v\n", rel, err)
 			failed = append(failed, rel)
 			continue
+		}
+
+		if nginx.HasBOM(string(buf)) {
+			fmt.Printf("Formatter Nginx Conf %s contained a UTF-8 BOM; removing it (nginx rejects a config that starts with one)\n", rel)
 		}
 
 		modifiedData, err := fn(string(buf), indent, indentChar)
