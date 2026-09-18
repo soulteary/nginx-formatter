@@ -128,7 +128,9 @@ func runFormat(input string, output string, indent int, indentChar string) error
 	indentChar = resolveIndentChar(indentChar)
 	fmt.Println()
 
-	checker.InDockerAndWorkDirIsRoot(src)
+	if err := checker.InDockerAndWorkDirIsRoot(src); err != nil {
+		return err
+	}
 
 	info, err := os.Stat(src)
 	if err != nil {
