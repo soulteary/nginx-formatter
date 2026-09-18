@@ -37,12 +37,18 @@ var ErrNeedsFormatting = errors.New("some files are not formatted")
 // and are reported by the caller on stderr.
 var Out io.Writer = os.Stdout
 
-// noticesFor picks where a scan's skip notices go.
+// noticesFor picks where a run's diagnostics go: the scan's skip notices and
+// the per-file "could not open/format this one" lines.
 //
 // ModeWrite sends them to Out, so --quiet covers them like every other
 // progress line. ModeCheck and ModeDiff own stdout -- it carries a file list
 // or a patch that something else parses -- so theirs go to stderr, where they
 // are still read by a human or a CI log but cannot be mistaken for a result.
+//
+// Every line a read-only mode can reach has to go through this. A tree with
+// one unparseable file is ordinary, not exotic, so a diagnostic left on stdout
+// is not a rare edge: `--check | xargs` then opens a file named "Formatter",
+// and a patch that starts with a prose line will not apply.
 func noticesFor(mode Mode) io.Writer {
 	if mode == ModeWrite {
 		return Out
@@ -385,9 +391,11 @@ func UpdateConfFileMode(inputFile string, output string, indent int, indentChar 
 	// inputFile is provided directly by the user running this local CLI tool via
 	// the --input flag, so reading it is the intended behavior rather than an
 	// untrusted-path file-inclusion risk. Suppress gosec G304 accordingly.
+	notices := noticesFor(mode)
+
 	buf, err := os.ReadFile(inputFile) // #nosec G304
 	if err != nil {
-		fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not open the file: %v\n", inputFile, err)
+		fmt.Fprintf(notices, "Formatter Nginx Conf %s failed, can not open the file: %v\n", inputFile, err)
 		return err
 	}
 
@@ -399,7 +407,7 @@ func UpdateConfFileMode(inputFile string, output string, indent int, indentChar 
 
 	modifiedData, err := fn(string(buf), indent, indentChar)
 	if err != nil {
-		fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not format the file: %v\n", inputFile, err)
+		fmt.Fprintf(notices, "Formatter Nginx Conf %s failed, can not format the file: %v\n", inputFile, err)
 		return err
 	}
 
@@ -497,7 +505,7 @@ func UpdateConfInDirMode(rootDir string, outputDir string, indent int, indentCha
 	for _, rel := range files {
 		buf, err := inRoot.ReadFile(rel)
 		if err != nil {
-			fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not open the file: %v\n", rel, err)
+			fmt.Fprintf(notices, "Formatter Nginx Conf %s failed, can not open the file: %v\n", rel, err)
 			failed = append(failed, rel)
 			continue
 		}
@@ -506,7 +514,7 @@ func UpdateConfInDirMode(rootDir string, outputDir string, indent int, indentCha
 
 		modifiedData, err := fn(string(buf), indent, indentChar)
 		if err != nil {
-			fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not format the file: %v\n", rel, err)
+			fmt.Fprintf(notices, "Formatter Nginx Conf %s failed, can not format the file: %v\n", rel, err)
 			failed = append(failed, rel)
 			continue
 		}
