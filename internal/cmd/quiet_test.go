@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/soulteary/nginx-formatter/internal/define"
 	"github.com/soulteary/nginx-formatter/internal/updater"
 )
 
@@ -102,4 +103,46 @@ func TestQuietFlagIsRegistered(t *testing.T) {
 	if root.PersistentFlags().ShorthandLookup("q") == nil {
 		t.Error("-q shorthand is not registered")
 	}
+}
+
+// TestQuietSuppressesPortWarning pins the one place where this feature and the
+// port-boundary fix meet. resolvePort's rejection notice is progress output on
+// stdout like any other, so --quiet has to cover it too; the fix that corrected
+// the bounds and the message landed separately and printed with fmt.Printf.
+func TestQuietSuppressesPortWarning(t *testing.T) {
+	t.Run("loud by default", func(t *testing.T) {
+		quiet = false
+		var got int
+		out := captureStdout(t, func() {
+			applyQuiet()
+			got = resolvePort(80)
+		})
+		if got != define.DEFAULT_PORT {
+			t.Errorf("resolvePort(80) = %d, want the default %d", got, define.DEFAULT_PORT)
+		}
+		if !strings.Contains(out, "Please set the port") {
+			t.Errorf("expected the rejection notice, got %q", out)
+		}
+	})
+
+	t.Run("silent with --quiet", func(t *testing.T) {
+		quiet = true
+		defer func() {
+			quiet = false
+			updater.Out = os.Stdout
+		}()
+
+		var got int
+		out := captureStdout(t, func() {
+			applyQuiet()
+			got = resolvePort(80)
+		})
+		if out != "" {
+			t.Errorf("expected no output with --quiet, got %q", out)
+		}
+		// Silencing the notice must not change the decision.
+		if got != define.DEFAULT_PORT {
+			t.Errorf("resolvePort(80) = %d, want the default %d", got, define.DEFAULT_PORT)
+		}
+	})
 }
