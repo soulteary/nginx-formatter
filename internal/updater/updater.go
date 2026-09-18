@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -16,7 +17,8 @@ import (
 // as, which is usually not the account that ran the formatter.
 const defaultFileMode = os.FileMode(0644)
 
-// ScanFiles lists the ".conf" files under rootDir, as paths relative to it.
+// ScanFiles lists the formattable files under rootDir, as paths relative to it
+// (isFormattableName defines the set).
 //
 // Symbolic links are reported and skipped rather than followed. The standard
 // Debian/Ubuntu layout links sites-enabled/x.conf to sites-available/x.conf,
@@ -48,7 +50,7 @@ func ScanFiles(rootDir string) ([]string, error) {
 		if d.IsDir() {
 			return nil
 		}
-		if !strings.HasSuffix(rel, ".conf") {
+		if !isFormattableName(rel) {
 			return nil
 		}
 		if d.Type()&fs.ModeSymlink != 0 {
@@ -62,6 +64,31 @@ func ScanFiles(rootDir string) ([]string, error) {
 		return nil, err
 	}
 	return files, nil
+}
+
+// isFormattableName reports whether a scanned path should be formatted.
+//
+// The set is "*.conf" plus one special case. Debian and Ubuntu's nginx package
+// ships sites-available/default and links sites-enabled/default at it: on those
+// systems it is the most common site file there is, and the only one with no
+// extension at all, so a plain `nginx-formatter format` over /etc/nginx used to
+// skip it without a word.
+//
+// The exception is anchored to both the name and its parent directory, so an
+// unrelated file called "default" elsewhere in the tree is still left alone.
+func isFormattableName(rel string) bool {
+	if strings.HasSuffix(rel, ".conf") {
+		return true
+	}
+	slashed := filepath.ToSlash(rel)
+	if path.Base(slashed) != "default" {
+		return false
+	}
+	switch path.Base(path.Dir(slashed)) {
+	case "sites-enabled", "sites-available":
+		return true
+	}
+	return false
 }
 
 // resolveTarget decides where the formatted single-file output should be
