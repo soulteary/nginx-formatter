@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/soulteary/nginx-formatter/internal/define"
 	"github.com/spf13/cobra"
 )
@@ -30,6 +32,9 @@ func newFormatCmd() *cobra.Command {
 		Example: `  # Format all .conf files in the current directory
   nginx-formatter format
 
+  # A single positional path means the same as --input
+  nginx-formatter format ./conf.d
+
   # Format a specific directory and write to a new directory
   nginx-formatter format -i ./conf.d -o ./dist
 
@@ -42,7 +47,18 @@ func newFormatCmd() *cobra.Command {
   nginx-formatter format -i ./conf.d -n 4 -c space`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		// One positional path is accepted and means the same as --input, the
+		// shape gofmt/prettier/black users reach for. It used to be parsed and
+		// then silently dropped, so `nginx-formatter format /etc/nginx` walked
+		// away and reformatted the *working directory* instead, exit code 0.
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 1 {
+				if input != "" {
+					return fmt.Errorf("cannot use both --input %q and the positional path %q", input, args[0])
+				}
+				input = args[0]
+			}
 			return runFormat(input, output, indent, indentChar)
 		},
 	}

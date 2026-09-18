@@ -77,3 +77,83 @@ func TestUpdateConfInDirLeavesNoTempFiles(t *testing.T) {
 		}
 	}
 }
+
+// TestLongFilenameStillFormats covers the regression the atomic write
+// introduced: the temporary name is ". + base + .tmp- + randomness", which is
+// 16-22 bytes longer than the target, so a legal but long .conf name blew past
+// NAME_MAX and the file could not be formatted at all.
+func TestLongFilenameStillFormats(t *testing.T) {
+	for _, n := range []int{200, 233, 245, 249} {
+		name := strings.Repeat("a", n) + ".conf"
+		t.Run(name[:12]+"...", func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, name)
+			mustWrite(t, path, "a {\nb;\n}\n")
+
+			if err := updater.UpdateConfFile(path, "", 2, " ", formatter.Formatter); err != nil {
+				t.Fatalf("single-file mode: %v", err)
+			}
+			if got := mustRead(t, path); !strings.Contains(got, "  b;") {
+				t.Errorf("single-file mode did not format: %q", got)
+			}
+
+			mustWrite(t, path, "a {\nb;\n}\n")
+			if err := updater.UpdateConfInDir(dir, dir, 2, " ", formatter.Formatter); err != nil {
+				t.Fatalf("directory mode: %v", err)
+			}
+			if got := mustRead(t, path); !strings.Contains(got, "  b;") {
+				t.Errorf("directory mode did not format: %q", got)
+			}
+		})
+	}
+}
+
+// TestOutputDirInsideInputIsNotReIngested covers the fractal case: an output
+// directory nested in the input tree was walked as input on the next run, so
+// each run nested one level deeper (out/, out/out/, ...).
+func TestOutputDirInsideInputIsNotReIngested(t *testing.T) {
+	src := t.TempDir()
+	out := filepath.Join(src, "out")
+	mustWrite(t, filepath.Join(src, "x.conf"), "a {\nb;\n}\n")
+
+	for i := range 3 {
+		if err := updater.UpdateConfInDir(src, out, 2, " ", formatter.Formatter); err != nil {
+			t.Fatalf("run %d: %v", i+1, err)
+		}
+	}
+
+	if _, err := os.Stat(filepath.Join(out, "out")); err == nil {
+		t.Error("the output directory re-ingested its own output")
+	}
+	if got := mustRead(t, filepath.Join(out, "x.conf")); !strings.Contains(got, "  b;") {
+		t.Errorf("output was not written: %q", got)
+	}
+}
+
+// TestUnchangedFileIsNotRewritten keeps the formatter from bumping mtime for
+// nothing, which wakes inotify watchers, config reloaders and make.
+func TestUnchangedFileIsNotRewritten(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "x.conf")
+	mustWrite(t, path, "a {\nb;\n}\n")
+
+	if err := updater.UpdateConfFile(path, "", 2, " ", formatter.Formatter); err != nil {
+		t.Fatalf("first pass: %v", err)
+	}
+	first, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+
+	// A second pass has nothing to change.
+	if err := updater.UpdateConfFile(path, "", 2, " ", formatter.Formatter); err != nil {
+		t.Fatalf("second pass: %v", err)
+	}
+	second, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if !first.ModTime().Equal(second.ModTime()) {
+		t.Errorf("mtime moved on an unchanged file: %v -> %v", first.ModTime(), second.ModTime())
+	}
+}

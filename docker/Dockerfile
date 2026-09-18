@@ -18,7 +18,6 @@ RUN echo '' > /etc/apk/repositories && \
     echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.21/main"         >> /etc/apk/repositories && \
     echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.21/community"    >> /etc/apk/repositories && \
     echo "Asia/Shanghai" > /etc/timezone
-RUN apk add openssl && rm -rf /var/cache/apk/*
 WORKDIR /
 COPY --from=builder /build/nginx-formatter /bin/nginx-formatter
 ENTRYPOINT ["nginx-formatter"]

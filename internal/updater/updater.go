@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 )
 
 // defaultFileMode is used when creating a file that does not already exist.
@@ -91,6 +92,51 @@ func isFormattableName(rel string) bool {
 	return false
 }
 
+// sameDir reports whether two paths name the same directory.
+func sameDir(a, b string) bool {
+	ai, err := os.Stat(a)
+	if err != nil {
+		return false
+	}
+	bi, err := os.Stat(b)
+	if err != nil {
+		return false
+	}
+	return os.SameFile(ai, bi)
+}
+
+// scanFilesExcluding is ScanFiles with any file living under excludeDir
+// dropped. excludeDir is ignored when it is not inside rootDir.
+func scanFilesExcluding(rootDir, excludeDir string) ([]string, error) {
+	files, err := ScanFiles(rootDir)
+	if err != nil {
+		return nil, err
+	}
+	if excludeDir == "" || sameDir(rootDir, excludeDir) {
+		return files, nil
+	}
+	absRoot, err1 := filepath.Abs(rootDir)
+	absOut, err2 := filepath.Abs(excludeDir)
+	if err1 != nil || err2 != nil {
+		return files, nil
+	}
+	rel, err := filepath.Rel(absRoot, absOut)
+	if err != nil || rel == "." || strings.HasPrefix(rel, "..") {
+		return files, nil // the output tree is not inside the input tree
+	}
+
+	prefix := rel + string(filepath.Separator)
+	kept := files[:0]
+	for _, f := range files {
+		if strings.HasPrefix(f, prefix) {
+			fmt.Printf("Skipping %s: inside the output directory\n", f)
+			continue
+		}
+		kept = append(kept, f)
+	}
+	return kept, nil
+}
+
 // resolveTarget decides where the formatted single-file output should be
 // written based on the -output value:
 //   - output == ""          -> overwrite inputFile in place
@@ -112,6 +158,29 @@ func resolveTarget(inputFile string, output string) (string, error) {
 		}
 	}
 	return output, nil
+}
+
+// tempBase bounds the basename embedded in a temporary file's name so the
+// whole name stays inside NAME_MAX (255 on Linux and macOS).
+//
+// The temporary name is "." + base + ".tmp-" + randomness, which is 16-22
+// bytes longer than base. Without this, a .conf file with a long but
+// perfectly legal name could not be formatted at all: creating its temporary
+// file failed with ENAMETOOLONG. Uniqueness comes from the random suffix, not
+// from the basename, so truncating here is safe.
+//
+// The cut is pulled back to a rune boundary: macOS rejects filenames that are
+// not valid UTF-8, so slicing mid-rune would trade one failure for another.
+func tempBase(base string) string {
+	const max = 200
+	if len(base) <= max {
+		return base
+	}
+	b := base[:max]
+	for len(b) > 0 && !utf8.ValidString(b) {
+		b = b[:len(b)-1]
+	}
+	return b
 }
 
 // resolveSymlink follows a symlink chain to the path it finally names, even
@@ -164,7 +233,7 @@ func writeFileAtomic(path string, data []byte) error {
 		owner = ownerOf(info)
 	}
 
-	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*")
+	tmp, err := os.CreateTemp(filepath.Dir(path), "."+tempBase(filepath.Base(path))+".tmp-*")
 	if err != nil {
 		return err
 	}
@@ -207,7 +276,7 @@ func createRootTemp(root *os.Root, rel string, perm os.FileMode) (string, *os.Fi
 		if _, err := rand.Read(suffix[:]); err != nil {
 			return "", nil, err
 		}
-		name := filepath.Join(dir, "."+base+".tmp-"+hex.EncodeToString(suffix[:]))
+		name := filepath.Join(dir, "."+tempBase(base)+".tmp-"+hex.EncodeToString(suffix[:]))
 		f, err := root.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm) // #nosec G302 -- see defaultFileMode
 		if err == nil {
 			return name, f, nil
@@ -282,6 +351,13 @@ func UpdateConfFile(inputFile string, output string, indent int, indentChar stri
 		return err
 	}
 
+	// Rewriting a file whose content is already correct would bump its mtime
+	// for nothing, waking inotify watchers, config reloaders and make.
+	if target == inputFile && modifiedData == string(buf) {
+		fmt.Printf("Formatter Nginx Conf %s Successed (already formatted)\n", target)
+		return nil
+	}
+
 	if err := writeFileAtomic(target, []byte(modifiedData)); err != nil {
 		fmt.Printf("Formatter Nginx Conf %s failed, can not save the file: %v\n", target, err)
 		return err
@@ -292,10 +368,14 @@ func UpdateConfFile(inputFile string, output string, indent int, indentChar stri
 }
 
 func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar string, fn func(s string, indent int, char string) (string, error)) error {
-	files, err := ScanFiles(rootDir)
+	// An output directory nested inside the input tree would otherwise be
+	// walked as input on the next run, so each run re-ingested its own
+	// previous output and nested one level deeper: out/, out/out/, ...
+	files, err := scanFilesExcluding(rootDir, outputDir)
 	if err != nil {
 		return err
 	}
+	sameTree := sameDir(rootDir, outputDir)
 
 	inRoot, err := os.OpenRoot(rootDir)
 	if err != nil {
@@ -338,6 +418,11 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 				failed = append(failed, rel)
 				continue
 			}
+		}
+
+		if sameTree && modifiedData == string(buf) {
+			fmt.Printf("Formatter Nginx Conf %s Successed (already formatted)\n", rel)
+			continue
 		}
 
 		if err := writeRootFileAtomic(outRoot, rel, []byte(modifiedData)); err != nil {
