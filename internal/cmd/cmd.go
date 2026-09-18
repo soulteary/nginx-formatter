@@ -83,11 +83,20 @@ func resolveIndent(indent int) int {
 	return indent
 }
 
+// minPort is the lowest port the WebUI will bind. Ports at or below 1024 are
+// privileged on Unix, and this tool has no business asking for them.
+const minPort = 1025
+
+// maxPort is the highest port number there is.
+const maxPort = 65535
+
 // resolvePort validates the WebUI port, falling back to the default when it is
 // out of the accepted range.
 func resolvePort(port int) int {
-	if port <= 1024 || port >= 65535 {
-		fmt.Println("Please set the port above 1024 and the port within 65535")
+	// The guard used to read "port >= 65535", which rejected 65535 itself even
+	// though the message promised everything "within 65535".
+	if port < minPort || port > maxPort {
+		fmt.Printf("Please set the port between %d and %d\n", minPort, maxPort)
 		fmt.Printf("use the default value: `%d`\n", define.DEFAULT_PORT)
 		return define.DEFAULT_PORT
 	}

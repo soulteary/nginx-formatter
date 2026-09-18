@@ -88,14 +88,21 @@ func TestResolveIndentChar(t *testing.T) {
 }
 
 func TestResolvePort(t *testing.T) {
-	if got := resolvePort(80); got != define.DEFAULT_PORT {
-		t.Errorf("expected default port for low value, got %d", got)
+	rejected := []int{-1, 0, 80, 443, 1024, 65536, 70000}
+	for _, p := range rejected {
+		if got := resolvePort(p); got != define.DEFAULT_PORT {
+			t.Errorf("resolvePort(%d) = %d, want the default %d", p, got, define.DEFAULT_PORT)
+		}
 	}
-	if got := resolvePort(70000); got != define.DEFAULT_PORT {
-		t.Errorf("expected default port for high value, got %d", got)
-	}
-	if got := resolvePort(8123); got != 8123 {
-		t.Errorf("expected port 8123, got %d", got)
+
+	// 1025 and 65535 are the edges of the accepted range. 65535 used to be
+	// rejected by a ">= 65535" guard, contradicting the message that promised
+	// everything "within 65535".
+	accepted := []int{1025, 8123, 65535}
+	for _, p := range accepted {
+		if got := resolvePort(p); got != p {
+			t.Errorf("resolvePort(%d) = %d, want it accepted", p, got)
+		}
 	}
 }
 
