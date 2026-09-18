@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/soulteary/nginx-formatter/internal/nginx"
 )
 
 // Mode selects what the updater does with the formatted result.
@@ -30,6 +32,24 @@ const (
 // file is not formatted, so the process exits non-zero and CI notices.
 var ErrNeedsFormatting = errors.New("some files are not formatted")
 
+// Out receives the per-file progress lines. It is a variable so `--quiet` can
+// point it at io.Discard; errors are unaffected, they travel back as values
+// and are reported by the caller on stderr.
+var Out io.Writer = os.Stdout
+
+// noticesFor picks where a scan's skip notices go.
+//
+// ModeWrite sends them to Out, so --quiet covers them like every other
+// progress line. ModeCheck and ModeDiff own stdout -- it carries a file list
+// or a patch that something else parses -- so theirs go to stderr, where they
+// are still read by a human or a CI log but cannot be mistaken for a result.
+func noticesFor(mode Mode) io.Writer {
+	if mode == ModeWrite {
+		return Out
+	}
+	return os.Stderr
+}
+
 // defaultFileMode is used when creating a file that does not already exist.
 // Configuration files must stay readable by the account nginx runs its workers
 // as, which is usually not the account that ran the formatter.
@@ -44,7 +64,7 @@ const defaultFileMode = os.FileMode(0644)
 // through a link would replace the link with a regular file. When the target
 // lives inside the scanned tree it is formatted via its own path anyway.
 func ScanFiles(rootDir string) ([]string, error) {
-	return scanFilesTo(rootDir, os.Stdout)
+	return scanFilesTo(rootDir, Out)
 }
 
 // scanFilesTo is ScanFiles with the destination for its skip notices made
@@ -367,13 +387,19 @@ func UpdateConfFileMode(inputFile string, output string, indent int, indentChar 
 	// untrusted-path file-inclusion risk. Suppress gosec G304 accordingly.
 	buf, err := os.ReadFile(inputFile) // #nosec G304
 	if err != nil {
-		fmt.Printf("Formatter Nginx Conf %s failed, can not open the file: %v\n", inputFile, err)
+		fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not open the file: %v\n", inputFile, err)
 		return err
 	}
 
+	// Recorded now, reported only once something has actually been written.
+	// Announcing the removal up front says "removing it" on the paths where
+	// nothing is removed: a file that fails to parse is left exactly as it
+	// was, BOM included.
+	hadBOM := nginx.HasBOM(string(buf))
+
 	modifiedData, err := fn(string(buf), indent, indentChar)
 	if err != nil {
-		fmt.Printf("Formatter Nginx Conf %s failed, can not format the file: %v\n", inputFile, err)
+		fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not format the file: %v\n", inputFile, err)
 		return err
 	}
 
@@ -387,24 +413,42 @@ func UpdateConfFileMode(inputFile string, output string, indent int, indentChar 
 
 	target, err := resolveTarget(inputFile, output)
 	if err != nil {
-		fmt.Printf("Formatter Nginx Conf %s failed, can not prepare the save dir: %v\n", inputFile, err)
+		fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not prepare the save dir: %v\n", inputFile, err)
 		return err
 	}
 
 	// Rewriting a file whose content is already correct would bump its mtime
 	// for nothing, waking inotify watchers, config reloaders and make.
 	if target == inputFile && modifiedData == string(buf) {
-		fmt.Printf("Formatter Nginx Conf %s Successed (already formatted)\n", target)
+		fmt.Fprintf(Out, "Formatter Nginx Conf %s Successed (already formatted)\n", target)
 		return nil
 	}
 
 	if err := writeFileAtomic(target, []byte(modifiedData)); err != nil {
-		fmt.Printf("Formatter Nginx Conf %s failed, can not save the file: %v\n", target, err)
+		fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not save the file: %v\n", target, err)
 		return err
 	}
 
-	fmt.Printf("Formatter Nginx Conf %s Successed\n", target)
+	if hadBOM {
+		reportBOM(inputFile, target, target == inputFile)
+	}
+	fmt.Fprintf(Out, "Formatter Nginx Conf %s Successed\n", target)
 	return nil
+}
+
+// reportBOM describes what happened to a byte order mark, after the fact.
+//
+// The two cases are genuinely different and the distinction matters to anyone
+// reading the log: formatting in place removes the mark from the user's own
+// file, while writing to a separate target leaves the input untouched and
+// simply produces a copy without one. Saying "removing it" in the second case
+// claims an edit to a file this run never opened for writing.
+func reportBOM(input, target string, inPlace bool) {
+	if inPlace {
+		fmt.Fprintf(Out, "Formatter Nginx Conf %s had a UTF-8 BOM; removed it (nginx rejects a config that starts with one)\n", target)
+		return
+	}
+	fmt.Fprintf(Out, "Formatter Nginx Conf %s had a UTF-8 BOM; %s was written without one, the input is unchanged\n", input, target)
 }
 
 func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar string, fn func(s string, indent int, char string) (string, error)) error {
@@ -413,11 +457,7 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 
 // UpdateConfInDirMode is UpdateConfInDir with an explicit Mode.
 func UpdateConfInDirMode(rootDir string, outputDir string, indent int, indentChar string, mode Mode, fn func(s string, indent int, char string) (string, error)) error {
-	// --check and --diff own stdout, so their skip notices go to stderr.
-	notices := io.Writer(os.Stdout)
-	if mode != ModeWrite {
-		notices = os.Stderr
-	}
+	notices := noticesFor(mode)
 
 	// An output directory nested inside the input tree would otherwise be
 	// walked as input on the next run, so each run re-ingested its own
@@ -439,7 +479,7 @@ func UpdateConfInDirMode(rootDir string, outputDir string, indent int, indentCha
 	var outRoot *os.Root
 	if mode == ModeWrite {
 		if err := os.MkdirAll(outputDir, 0750); err != nil {
-			fmt.Printf("Formatter Nginx Conf failed, can not prepare the save dir %s: %v\n", outputDir, err)
+			fmt.Fprintf(Out, "Formatter Nginx Conf failed, can not prepare the save dir %s: %v\n", outputDir, err)
 			return err
 		}
 		outRoot, err = os.OpenRoot(outputDir)
@@ -457,14 +497,16 @@ func UpdateConfInDirMode(rootDir string, outputDir string, indent int, indentCha
 	for _, rel := range files {
 		buf, err := inRoot.ReadFile(rel)
 		if err != nil {
-			fmt.Printf("Formatter Nginx Conf %s failed, can not open the file: %v\n", rel, err)
+			fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not open the file: %v\n", rel, err)
 			failed = append(failed, rel)
 			continue
 		}
 
+		hadBOM := nginx.HasBOM(string(buf))
+
 		modifiedData, err := fn(string(buf), indent, indentChar)
 		if err != nil {
-			fmt.Printf("Formatter Nginx Conf %s failed, can not format the file: %v\n", rel, err)
+			fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not format the file: %v\n", rel, err)
 			failed = append(failed, rel)
 			continue
 		}
@@ -479,24 +521,27 @@ func UpdateConfInDirMode(rootDir string, outputDir string, indent int, indentCha
 
 		if dir := filepath.Dir(rel); dir != "." {
 			if err := outRoot.MkdirAll(dir, 0750); err != nil {
-				fmt.Printf("Formatter Nginx Conf %s failed, can not prepare the save dir: %v\n", rel, err)
+				fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not prepare the save dir: %v\n", rel, err)
 				failed = append(failed, rel)
 				continue
 			}
 		}
 
 		if sameTree && modifiedData == string(buf) {
-			fmt.Printf("Formatter Nginx Conf %s Successed (already formatted)\n", rel)
+			fmt.Fprintf(Out, "Formatter Nginx Conf %s Successed (already formatted)\n", rel)
 			continue
 		}
 
 		if err := writeRootFileAtomic(outRoot, rel, []byte(modifiedData)); err != nil {
-			fmt.Printf("Formatter Nginx Conf %s failed, can not save the file: %v\n", rel, err)
+			fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not save the file: %v\n", rel, err)
 			failed = append(failed, rel)
 			continue
 		}
 
-		fmt.Printf("Formatter Nginx Conf %s Successed\n", rel)
+		if hadBOM {
+			reportBOM(rel, filepath.Join(outputDir, rel), sameTree)
+		}
+		fmt.Fprintf(Out, "Formatter Nginx Conf %s Successed\n", rel)
 	}
 
 	if len(failed) > 0 {
@@ -511,10 +556,19 @@ func UpdateConfInDirMode(rootDir string, outputDir string, indent int, indentCha
 
 // reportUnformatted prints what ModeCheck and ModeDiff owe the caller: a bare
 // path for check (the gofmt -l shape, easy to pipe), a unified diff for diff.
+//
+// These two write to os.Stdout directly rather than through Out, and that is
+// the one place in this package where the distinction matters. Out exists so
+// --quiet can silence progress narration; this is not narration, it is the
+// result the caller asked for. Routing it through Out would make
+// `--check --quiet` print nothing at all and report only through the exit
+// code, silently discarding requested output -- a worse failure than the noise
+// --quiet was added to remove. The skip notices beside it are diagnostics and
+// do go through Out, or to stderr in these modes.
 func reportUnformatted(mode Mode, name, before, after string) {
 	if mode == ModeDiff {
-		fmt.Print(UnifiedDiff(name, before, after))
+		fmt.Fprint(os.Stdout, UnifiedDiff(name, before, after))
 		return
 	}
-	fmt.Println(name)
+	fmt.Fprintln(os.Stdout, name)
 }

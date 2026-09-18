@@ -46,7 +46,17 @@ func captureBoth(t *testing.T, fn func()) (stdout, stderr string) {
 
 	_, finishOut := read(&os.Stdout)
 	_, finishErr := read(&os.Stderr)
+
+	// updater.Out is bound to os.Stdout at init and does not follow a later
+	// reassignment, so redirecting os.Stdout alone lets every notice written
+	// through Out escape to the real terminal. ModeWrite's notices go through
+	// it, which is exactly what the write-mode assertion below is checking.
+	savedOut := updater.Out
+	updater.Out = os.Stdout
+
 	fn()
+
+	updater.Out = savedOut
 	return finishOut(), finishErr()
 }
 

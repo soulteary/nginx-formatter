@@ -17,6 +17,31 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// quiet suppresses the banner and the per-step progress lines. Errors are
+// never suppressed: they go to stderr through main.
+var quiet bool
+
+// infof prints a progress line unless --quiet is set.
+func infof(format string, a ...any) {
+	if !quiet {
+		fmt.Printf(format, a...)
+	}
+}
+
+// infoln is infof for the Println-shaped call sites.
+func infoln(a ...any) {
+	if !quiet {
+		fmt.Println(a...)
+	}
+}
+
+// applyQuiet wires the flag into the packages that print progress.
+func applyQuiet() {
+	if quiet {
+		updater.Out = io.Discard
+	}
+}
+
 // resolveOutputDefault decides the effective output value when the output
 // flag is empty:
 //   - output != ""                    -> returned as-is
@@ -74,7 +99,7 @@ func resolveIndentQuiet(indent int, report bool) int {
 // the effective choice.
 func resolveIndentChar(indentChar string) string {
 	if indentChar == "" {
-		fmt.Printf("No output indent char specified, use the default value: `%s`\n", define.DISPLAY_INDENT_CHARS[define.DEFAULT_INDENT_CHAR])
+		infof("No output indent char specified, use the default value: `%s`\n", define.DISPLAY_INDENT_CHARS[define.DEFAULT_INDENT_CHAR])
 		return define.DEFAULT_INDENT_CHAR
 	}
 
@@ -90,14 +115,14 @@ func resolveIndentChar(indentChar string) string {
 	}
 
 	if indentChar != "\t" && indentChar != " " {
-		fmt.Printf("Specify the indent char not support, use the default value: `%s`\n", define.DISPLAY_INDENT_CHARS[define.DEFAULT_INDENT_CHAR])
+		infof("Specify the indent char not support, use the default value: `%s`\n", define.DISPLAY_INDENT_CHARS[define.DEFAULT_INDENT_CHAR])
 		indentChar = define.DEFAULT_INDENT_CHAR
 	}
 
 	if display, ok := define.DISPLAY_INDENT_CHARS[indentChar]; ok {
-		fmt.Printf("Specify the indent char as: `%s`\n", display)
+		infof("Specify the indent char as: `%s`\n", display)
 	} else {
-		fmt.Printf("Specify the indent char as: `%s`\n", indentChar)
+		infof("Specify the indent char as: `%s`\n", indentChar)
 	}
 	return indentChar
 }
@@ -106,10 +131,10 @@ func resolveIndentChar(indentChar string) string {
 // a non-positive value is provided.
 func resolveIndent(indent int) int {
 	if indent <= 0 {
-		fmt.Println("No output indent size specified, use the default value:", define.DEFAULT_INDENT_SIZE)
+		infoln("No output indent size specified, use the default value:", define.DEFAULT_INDENT_SIZE)
 		return define.DEFAULT_INDENT_SIZE
 	}
-	fmt.Println("Specify the indent size as:", indent)
+	infoln("Specify the indent size as:", indent)
 	return indent
 }
 
@@ -126,8 +151,8 @@ func resolvePort(port int) int {
 	// The guard used to read "port >= 65535", which rejected 65535 itself even
 	// though the message promised everything "within 65535".
 	if port < minPort || port > maxPort {
-		fmt.Printf("Please set the port between %d and %d\n", minPort, maxPort)
-		fmt.Printf("use the default value: `%d`\n", define.DEFAULT_PORT)
+		infof("Please set the port between %d and %d\n", minPort, maxPort)
+		infof("use the default value: `%d`\n", define.DEFAULT_PORT)
 		return define.DEFAULT_PORT
 	}
 	return port
@@ -152,15 +177,19 @@ func formatStdin(indent int, indentChar string, mode updater.Mode) error {
 		return err
 	}
 
+	// All three branches write to os.Stdout directly, never through infof or
+	// updater.Out: this is the result the caller asked for, not narration, so
+	// --quiet must not swallow it. `cat x.conf | nginx-formatter format -i - -q`
+	// still has to print the formatted configuration.
 	switch mode {
 	case updater.ModeCheck:
 		if out != string(in) {
-			fmt.Println("<stdin>")
+			fmt.Fprintln(os.Stdout, "<stdin>")
 			return updater.ErrNeedsFormatting
 		}
 	case updater.ModeDiff:
 		if d := updater.UnifiedDiff("<stdin>", string(in), out); d != "" {
-			fmt.Print(d)
+			fmt.Fprint(os.Stdout, d)
 			return updater.ErrNeedsFormatting
 		}
 	default:
@@ -175,9 +204,12 @@ func runFormatMode(input string, output string, indent int, indentChar string, m
 	// file list to pipe, a diff to apply. Their stdout carries only that, so
 	// the progress narration is skipped rather than interleaved with it.
 	report := mode == updater.ModeWrite
+	// The two suppressions compose here rather than competing: report says
+	// whether this invocation narrates at all (--check, --diff and stdin own
+	// their stdout), and infoln applies --quiet to whatever survives that.
 	say := func(a ...any) {
 		if report {
-			fmt.Println(a...)
+			infoln(a...)
 		}
 	}
 
@@ -218,10 +250,12 @@ func runFormatMode(input string, output string, indent int, indentChar string, m
 	indent = resolveIndentQuiet(indent, report)
 	indentChar = resolveIndentCharQuiet(indentChar, report)
 	if report {
-		fmt.Println()
+		infoln()
 	}
 
-	checker.InDockerAndWorkDirIsRoot(src)
+	if err := checker.InDockerAndWorkDirIsRoot(src); err != nil {
+		return err
+	}
 
 	info, err := os.Stat(src)
 	if err != nil {
@@ -243,11 +277,11 @@ func runServe(host string, port int, indent int, indentChar string) error {
 	// Report the address actually bound. An empty host means every interface,
 	// so saying "localhost" there would understate the exposure.
 	if host == "" {
-		fmt.Printf("Enable WebUI on all interfaces, please visit http://localhost:%d\n", port)
+		infof("Enable WebUI on all interfaces, please visit http://localhost:%d\n", port)
 	} else {
-		fmt.Printf("Enable WebUI, please visit http://%s\n", net.JoinHostPort(host, strconv.Itoa(port)))
+		infof("Enable WebUI, please visit http://%s\n", net.JoinHostPort(host, strconv.Itoa(port)))
 	}
-	fmt.Println()
+	infoln()
 
 	return server.Launch(host, port, indent, indentChar, formatter.Formatter)
 }
@@ -301,8 +335,9 @@ func newRootCmd() *cobra.Command {
 		// Print the startup banner for every command except `version`,
 		// whose output already carries the version number.
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			applyQuiet()
 			if cmd.Name() != "version" && !machineReadable(cmd) {
-				fmt.Printf("Nginx Formatter %s\n\n", version.Version)
+				infof("Nginx Formatter %s\n\n", version.Version)
 			}
 		},
 		// The root command keeps backward compatibility with the legacy
@@ -315,6 +350,9 @@ func newRootCmd() *cobra.Command {
 			return runFormat(legacyInput, legacyOutput, legacyIndent, legacyChar)
 		},
 	}
+
+	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false,
+		"Suppress the banner and progress output (errors still go to stderr)")
 
 	flags := rootCmd.Flags()
 	flags.StringVar(&legacyInput, define.APP_ARGV_INPUT, define.DEFAULT_WORKDIR, "Input directory or file (legacy)")
