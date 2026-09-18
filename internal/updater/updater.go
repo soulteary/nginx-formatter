@@ -16,10 +16,39 @@ import (
 	"github.com/soulteary/nginx-formatter/internal/nginx"
 )
 
+// Mode selects what the updater does with the formatted result.
+type Mode int
+
+const (
+	// ModeWrite saves the result over the target. The default.
+	ModeWrite Mode = iota
+	// ModeCheck writes nothing and only reports which files would change.
+	ModeCheck
+	// ModeDiff writes nothing and prints a unified diff per changed file.
+	ModeDiff
+)
+
+// ErrNeedsFormatting is returned by ModeCheck and ModeDiff when at least one
+// file is not formatted, so the process exits non-zero and CI notices.
+var ErrNeedsFormatting = errors.New("some files are not formatted")
+
 // Out receives the per-file progress lines. It is a variable so `--quiet` can
 // point it at io.Discard; errors are unaffected, they travel back as values
 // and are reported by the caller on stderr.
 var Out io.Writer = os.Stdout
+
+// noticesFor picks where a scan's skip notices go.
+//
+// ModeWrite sends them to Out, so --quiet covers them like every other
+// progress line. ModeCheck and ModeDiff own stdout -- it carries a file list
+// or a patch that something else parses -- so theirs go to stderr, where they
+// are still read by a human or a CI log but cannot be mistaken for a result.
+func noticesFor(mode Mode) io.Writer {
+	if mode == ModeWrite {
+		return Out
+	}
+	return os.Stderr
+}
 
 // defaultFileMode is used when creating a file that does not already exist.
 // Configuration files must stay readable by the account nginx runs its workers
@@ -35,6 +64,16 @@ const defaultFileMode = os.FileMode(0644)
 // through a link would replace the link with a regular file. When the target
 // lives inside the scanned tree it is formatted via its own path anyway.
 func ScanFiles(rootDir string) ([]string, error) {
+	return scanFilesTo(rootDir, Out)
+}
+
+// scanFilesTo is ScanFiles with the destination for its skip notices made
+// explicit. Those notices are diagnostics, not results: under --check and
+// --diff stdout carries a file list or a patch that something else parses, so
+// a stray "Skipping ..." line there would be read as one more path. They go to
+// stderr in those modes instead of being dropped, because a skipped file is
+// exactly what someone running --check in CI needs to hear about.
+func scanFilesTo(rootDir string, notices io.Writer) ([]string, error) {
 	if rootDir == "" {
 		return nil, fmt.Errorf("scandir is empty")
 	}
@@ -50,7 +89,7 @@ func ScanFiles(rootDir string) ([]string, error) {
 			// One unreadable entry must not abort the whole scan: a single
 			// permission-denied directory would otherwise mean nothing at all
 			// gets formatted.
-			fmt.Fprintf(Out, "Skipping %s: %v\n", rel, err)
+			fmt.Fprintf(notices, "Skipping %s: %v\n", rel, err)
 			if d != nil && d.IsDir() {
 				return fs.SkipDir
 			}
@@ -63,7 +102,7 @@ func ScanFiles(rootDir string) ([]string, error) {
 			return nil
 		}
 		if d.Type()&fs.ModeSymlink != 0 {
-			fmt.Fprintf(Out, "Skipping %s: symbolic link\n", rel)
+			fmt.Fprintf(notices, "Skipping %s: symbolic link\n", rel)
 			return nil
 		}
 		files = append(files, rel)
@@ -115,8 +154,8 @@ func sameDir(a, b string) bool {
 
 // scanFilesExcluding is ScanFiles with any file living under excludeDir
 // dropped. excludeDir is ignored when it is not inside rootDir.
-func scanFilesExcluding(rootDir, excludeDir string) ([]string, error) {
-	files, err := ScanFiles(rootDir)
+func scanFilesExcluding(rootDir, excludeDir string, notices io.Writer) ([]string, error) {
+	files, err := scanFilesTo(rootDir, notices)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +176,7 @@ func scanFilesExcluding(rootDir, excludeDir string) ([]string, error) {
 	kept := files[:0]
 	for _, f := range files {
 		if strings.HasPrefix(f, prefix) {
-			fmt.Fprintf(Out, "Skipping %s: inside the output directory\n", f)
+			fmt.Fprintf(notices, "Skipping %s: inside the output directory\n", f)
 			continue
 		}
 		kept = append(kept, f)
@@ -338,6 +377,11 @@ func writeRootFileAtomic(root *os.Root, rel string, data []byte) error {
 // UpdateConfFile formats a single file. Unlike UpdateConfInDir it does not
 // filter by the .conf suffix, so any file can be formatted.
 func UpdateConfFile(inputFile string, output string, indent int, indentChar string, fn func(s string, indent int, char string) (string, error)) error {
+	return UpdateConfFileMode(inputFile, output, indent, indentChar, ModeWrite, fn)
+}
+
+// UpdateConfFileMode is UpdateConfFile with an explicit Mode.
+func UpdateConfFileMode(inputFile string, output string, indent int, indentChar string, mode Mode, fn func(s string, indent int, char string) (string, error)) error {
 	// inputFile is provided directly by the user running this local CLI tool via
 	// the --input flag, so reading it is the intended behavior rather than an
 	// untrusted-path file-inclusion risk. Suppress gosec G304 accordingly.
@@ -357,6 +401,14 @@ func UpdateConfFile(inputFile string, output string, indent int, indentChar stri
 	if err != nil {
 		fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not format the file: %v\n", inputFile, err)
 		return err
+	}
+
+	if mode != ModeWrite {
+		if modifiedData == string(buf) {
+			return nil
+		}
+		reportUnformatted(mode, inputFile, string(buf), modifiedData)
+		return ErrNeedsFormatting
 	}
 
 	target, err := resolveTarget(inputFile, output)
@@ -400,10 +452,17 @@ func reportBOM(input, target string, inPlace bool) {
 }
 
 func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar string, fn func(s string, indent int, char string) (string, error)) error {
+	return UpdateConfInDirMode(rootDir, outputDir, indent, indentChar, ModeWrite, fn)
+}
+
+// UpdateConfInDirMode is UpdateConfInDir with an explicit Mode.
+func UpdateConfInDirMode(rootDir string, outputDir string, indent int, indentChar string, mode Mode, fn func(s string, indent int, char string) (string, error)) error {
+	notices := noticesFor(mode)
+
 	// An output directory nested inside the input tree would otherwise be
 	// walked as input on the next run, so each run re-ingested its own
 	// previous output and nested one level deeper: out/, out/out/, ...
-	files, err := scanFilesExcluding(rootDir, outputDir)
+	files, err := scanFilesExcluding(rootDir, outputDir, notices)
 	if err != nil {
 		return err
 	}
@@ -415,20 +474,26 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 	}
 	defer func() { _ = inRoot.Close() }()
 
-	if err := os.MkdirAll(outputDir, 0750); err != nil {
-		fmt.Fprintf(Out, "Formatter Nginx Conf failed, can not prepare the save dir %s: %v\n", outputDir, err)
-		return err
+	// ModeCheck and ModeDiff write nothing, so they must not create the output
+	// directory either — a read-only mode with a side effect is a trap in CI.
+	var outRoot *os.Root
+	if mode == ModeWrite {
+		if err := os.MkdirAll(outputDir, 0750); err != nil {
+			fmt.Fprintf(Out, "Formatter Nginx Conf failed, can not prepare the save dir %s: %v\n", outputDir, err)
+			return err
+		}
+		outRoot, err = os.OpenRoot(outputDir)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = outRoot.Close() }()
 	}
-	outRoot, err := os.OpenRoot(outputDir)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = outRoot.Close() }()
 
 	// A file that cannot be read or parsed is reported and skipped, so one bad
 	// config no longer leaves the rest of the tree unprocessed. The failures
 	// are surfaced as a single error once every file has been attempted.
 	var failed []string
+	unformatted := false
 	for _, rel := range files {
 		buf, err := inRoot.ReadFile(rel)
 		if err != nil {
@@ -443,6 +508,14 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 		if err != nil {
 			fmt.Fprintf(Out, "Formatter Nginx Conf %s failed, can not format the file: %v\n", rel, err)
 			failed = append(failed, rel)
+			continue
+		}
+
+		if mode != ModeWrite {
+			if modifiedData != string(buf) {
+				reportUnformatted(mode, rel, string(buf), modifiedData)
+				unformatted = true
+			}
 			continue
 		}
 
@@ -475,5 +548,27 @@ func UpdateConfInDir(rootDir string, outputDir string, indent int, indentChar st
 		return fmt.Errorf("%d of %d file(s) could not be formatted: %s",
 			len(failed), len(files), strings.Join(failed, ", "))
 	}
+	if unformatted {
+		return ErrNeedsFormatting
+	}
 	return nil
+}
+
+// reportUnformatted prints what ModeCheck and ModeDiff owe the caller: a bare
+// path for check (the gofmt -l shape, easy to pipe), a unified diff for diff.
+//
+// These two write to os.Stdout directly rather than through Out, and that is
+// the one place in this package where the distinction matters. Out exists so
+// --quiet can silence progress narration; this is not narration, it is the
+// result the caller asked for. Routing it through Out would make
+// `--check --quiet` print nothing at all and report only through the exit
+// code, silently discarding requested output -- a worse failure than the noise
+// --quiet was added to remove. The skip notices beside it are diagnostics and
+// do go through Out, or to stderr in these modes.
+func reportUnformatted(mode Mode, name, before, after string) {
+	if mode == ModeDiff {
+		fmt.Fprint(os.Stdout, UnifiedDiff(name, before, after))
+		return
+	}
+	fmt.Fprintln(os.Stdout, name)
 }

@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"errors"
+	"github.com/soulteary/nginx-formatter/internal/updater"
 	"io"
 	"os"
 	"path/filepath"
@@ -275,6 +277,67 @@ func TestFormatPositionalPath(t *testing.T) {
 		cmd.SetArgs([]string{"./a", "./b"})
 		if err := cmd.Execute(); err == nil {
 			t.Error("expected an error for two positional paths")
+		}
+	})
+}
+
+// TestPositionalPathWithCheckAndDiff covers the place where the positional
+// path and the read-only modes meet. Both arrived independently, and the
+// obvious way to combine them is wrong in one specific direction: select the
+// mode before resolving the path and --check inspects the *working directory*
+// while the argument the user typed is ignored — the same silent-wrong-target
+// bug the positional path was added to fix, back again in a mode whose whole
+// job is to report accurately.
+func TestPositionalPathWithCheckAndDiff(t *testing.T) {
+	newTree := func(t *testing.T) (dir, target string) {
+		t.Helper()
+		dir = t.TempDir()
+		target = filepath.Join(dir, "x.conf")
+		if err := os.WriteFile(target, []byte("a {\nb;\n}\n"), 0600); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+		return dir, target
+	}
+
+	for _, flag := range []string{"--check", "--diff"} {
+		t.Run(flag+" reports the named path", func(t *testing.T) {
+			dir, target := newTree(t)
+			before, err := os.ReadFile(target)
+			if err != nil {
+				t.Fatalf("read: %v", err)
+			}
+
+			cmd := newFormatCmd()
+			cmd.SetOut(io.Discard)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs([]string{dir, flag})
+			if err := cmd.Execute(); !errors.Is(err, updater.ErrNeedsFormatting) {
+				t.Fatalf("expected ErrNeedsFormatting for the unformatted file at the named path, got %v", err)
+			}
+
+			// Read-only stays read-only, positional path or not.
+			after, err := os.ReadFile(target)
+			if err != nil {
+				t.Fatalf("read: %v", err)
+			}
+			if string(after) != string(before) {
+				t.Errorf("%s rewrote the file:\nbefore: %q\nafter:  %q", flag, before, after)
+			}
+		})
+	}
+
+	t.Run("--check and --diff cannot be combined", func(t *testing.T) {
+		dir, _ := newTree(t)
+		cmd := newFormatCmd()
+		cmd.SetOut(io.Discard)
+		cmd.SetErr(io.Discard)
+		cmd.SetArgs([]string{dir, "--check", "--diff"})
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+		if errors.Is(err, updater.ErrNeedsFormatting) {
+			t.Errorf("the flag combination was accepted and the run proceeded: %v", err)
 		}
 	})
 }
