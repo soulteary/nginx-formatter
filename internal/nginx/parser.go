@@ -29,6 +29,7 @@ type Parser struct {
 // number on unbalanced braces or a missing semicolon, and rejects input that
 // is not valid UTF-8 text.
 func Parse(src string) (*Config, error) {
+	src = StripBOM(src)
 	if err := checkText(src); err != nil {
 		return nil, err
 	}
@@ -237,6 +238,18 @@ func (p *Parser) consumeInlineComment() string {
 	}
 	return ""
 }
+
+// BOM is the UTF-8 byte order mark. Windows editors add it silently, and
+// nginx has no idea what it is: with one present the first directive's name is
+// "\ufeffserver" rather than "server", and nginx refuses the file with
+// "unknown directive". The formatter used to preserve it and report success.
+const BOM = "\ufeff"
+
+// HasBOM reports whether src starts with a UTF-8 byte order mark.
+func HasBOM(src string) bool { return strings.HasPrefix(src, BOM) }
+
+// StripBOM removes a leading UTF-8 byte order mark, if there is one.
+func StripBOM(src string) string { return strings.TrimPrefix(src, BOM) }
 
 // checkText rejects input the formatter cannot round-trip losslessly.
 //
