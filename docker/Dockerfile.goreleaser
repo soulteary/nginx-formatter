@@ -1,4 +1,4 @@
-FROM alpine:3.21
+FROM alpine:3.24
 WORKDIR /
 COPY nginx-formatter /bin/nginx-formatter
 ENTRYPOINT ["nginx-formatter"]

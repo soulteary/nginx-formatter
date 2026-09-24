@@ -13,7 +13,7 @@ COPY ./ .
 RUN go build -ldflags "-w -s"
 RUN upx -9 -o nginx-formatter.minify nginx-formatter && mv nginx-formatter.minify nginx-formatter
 
-FROM alpine:3.21
+FROM alpine:3.24
 RUN echo '' > /etc/apk/repositories && \
     echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.21/main"         >> /etc/apk/repositories && \
     echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.21/community"    >> /etc/apk/repositories && \
