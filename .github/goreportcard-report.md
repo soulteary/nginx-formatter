@@ -22,8 +22,6 @@
 
 ### gocyclo
 
-- `internal/nginx/parser.go`
-  - Line 107: cyclomatic complexity 20 for function (*Parser).parseStatement
 - `internal/updater/updater.go`
   - Line 467: cyclomatic complexity 19 for function UpdateConfInDirMode
 - `internal/updater/update_test.go`
@@ -36,6 +34,8 @@
   - Line 116: cyclomatic complexity 24 for function longStringLines
 - `internal/nginx/lexer.go`
   - Line 125: cyclomatic complexity 23 for function (*Lexer).ReadRawBlock
+- `internal/nginx/parser.go`
+  - Line 107: cyclomatic complexity 20 for function (*Parser).parseStatement
 
 ---
 
