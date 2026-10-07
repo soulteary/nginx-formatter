@@ -53,7 +53,7 @@ func TestUpdateConfInDir(t *testing.T) {
 		t.Fatalf("read output: %v", err)
 	}
 
-	expected := "http {\n    location / {\n        return 200 \"${scheme}://`host`\";\n    }\n\n}\n"
+	expected := "http {\n    location / {\n        return 200 \"${scheme}://`host`\";\n    }\n}\n"
 	if string(out) != expected {
 		t.Errorf("unexpected output.\n got: %q\nwant: %q", string(out), expected)
 	}
@@ -61,7 +61,7 @@ func TestUpdateConfInDir(t *testing.T) {
 
 func TestUpdateConfFile(t *testing.T) {
 	input := "http {\nlocation / {\nreturn 200 \"ok\";\n}\n}"
-	expected := "http {\n    location / {\n        return 200 \"ok\";\n    }\n\n}\n"
+	expected := "http {\n    location / {\n        return 200 \"ok\";\n    }\n}\n"
 
 	t.Run("in place overwrite when output empty", func(t *testing.T) {
 		dir := t.TempDir()
