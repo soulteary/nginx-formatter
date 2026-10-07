@@ -6,10 +6,9 @@ import (
 )
 
 // Format renders cfg back to text using indent copies of char per nesting
-// level. It reproduces the historical formatter's layout: preserved blank
-// lines between statements, a blank line after a "}" whose preceding line is a
-// non-empty non-"}" line, empty blocks rendered as "{  }", and collapsing of
-// 3+ consecutive newlines into 2.
+// level. It preserves blank lines between statements, separates block bodies
+// from following statements without adding a blank before an enclosing "}",
+// renders empty blocks as "{  }", and collapses 3+ consecutive newlines into 2.
 func Format(cfg *Config, indent int, char string) string {
 	if cfg == nil || len(cfg.Nodes) == 0 {
 		return ""
@@ -239,6 +238,12 @@ func renderStatementHead(name string, args []string) string {
 		parts = append(parts, name)
 	}
 	parts = append(parts, args...)
+	// A quoted final operand and the condition's closing parenthesis are
+	// separate tokens. The delimiter should touch the operand without changing
+	// whitespace inside quoted values or parentheses inside regex arguments.
+	if name == "if" && len(args) > 1 && args[len(args)-1] == ")" {
+		return strings.Join(parts[:len(parts)-1], " ") + ")"
+	}
 	return strings.Join(parts, " ")
 }
 
@@ -250,8 +255,9 @@ func inlineComment(text string) string {
 }
 
 // addEmptyLineAfterBraces inserts a blank line after any "}" line whose
-// immediately preceding line is a non-empty, non-"}" line, matching the
-// historical add_empty_line_after_nginx_directives behavior.
+// immediately preceding line is a non-empty, non-"}" line. Separation belongs
+// before a following statement, not between a child block and its parent's
+// closing brace or at the end of the file. Existing blank lines are preserved.
 func addEmptyLineAfterBraces(lines []string) []string {
 	out := make([]string, 0, len(lines)+4)
 	for i := 0; i < len(lines); i++ {
@@ -263,7 +269,13 @@ func addEmptyLineAfterBraces(lines []string) []string {
 				prev = strings.TrimSpace(lines[i-1])
 			}
 			if prev != "" && !strings.HasPrefix(prev, "}") {
-				out = append(out, "")
+				next := i + 1
+				for next < len(lines) && strings.TrimSpace(lines[next]) == "" {
+					next++
+				}
+				if next < len(lines) && !strings.HasPrefix(strings.TrimSpace(lines[next]), "}") {
+					out = append(out, "")
+				}
 			}
 		}
 	}

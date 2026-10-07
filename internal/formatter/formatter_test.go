@@ -64,7 +64,6 @@ http {
         location /api/ro {
             api;
         }
-
     }
 }`
 
