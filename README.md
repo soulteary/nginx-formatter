@@ -12,6 +12,12 @@ Nginx configuration formatter ~10MB size, support CLI, WebUI, x86, ARM, Linux, m
 
 <img src=".github/preview.png">
 
+> **What's new in [v2.6.1](https://github.com/soulteary/nginx-formatter/releases/tag/v2.6.1)**
+>
+> - No longer inserts a blank line between the final nested block and its enclosing closing brace. Existing blank lines and separation between sibling blocks are preserved.
+> - Removes unnecessary whitespace before the closing parenthesis of an `if` condition: `if ($secure_link = "" )` now formats as `if ($secure_link = "")`. Quoted content and regex arguments remain unchanged.
+> - Updated the final Docker runtime images from Alpine 3.21 to Alpine 3.24.
+
 > **What's new in [v2.6.0](https://github.com/soulteary/nginx-formatter/releases/tag/v2.6.0)**
 >
 > - Embedded scripts are now opaque to the printer's text passes. Everything between Lua long brackets (`[[ ]]`, `[=[ ]=]`, `--[[ ]]`) is string content, but the whole-document passes could not tell nginx structure from embedded script: blank runs inside a long string were collapsed, trailing spaces were trimmed, the body was re-indented, and a blank line was injected after every line starting with `}` — which is how a Lua table closes. `*_by_lua_block` bodies now round-trip byte for byte, while ordinary Lua outside a bracket is still normalized to the block indent.
@@ -82,7 +88,7 @@ If you use docker, you can use the following command ([DockerHub](https://hub.do
 
 ```bash
 docker pull soulteary/nginx-formatter:latest
-docker pull soulteary/nginx-formatter:v2.5.0
+docker pull soulteary/nginx-formatter:v2.6.1
 ```
 
 ### Homebrew
@@ -135,6 +141,7 @@ jobs:
         with:
           path: .
           mode: check
+          version: v2.6.1
 ```
 
 See the [Nginx Format Action documentation](https://github.com/soulteary/nginx-format-action#readme) for write mode, indentation settings, version pinning, and more examples.

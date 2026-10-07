@@ -12,6 +12,12 @@
 
 <img src=".github/preview.png">
 
+> **[v2.6.1](https://github.com/soulteary/nginx-formatter/releases/tag/v2.6.1) 更新说明**
+>
+> - 不再在最后一个嵌套块与其外层块的收尾大括号之间插入空行。原有空行及同级块之间的间隔仍会保留。
+> - 去除 `if` 条件收尾右括号前的多余空格：`if ($secure_link = "" )` 现在会格式化为 `if ($secure_link = "")`。引号内的内容和正则参数保持不变。
+> - 将最终 Docker 运行时镜像从 Alpine 3.21 升级至 Alpine 3.24。
+
 > **[v2.6.0](https://github.com/soulteary/nginx-formatter/releases/tag/v2.6.0) 更新说明**
 >
 > - 内嵌脚本对排版阶段不再透明。Lua 长括号（`[[ ]]`、`[=[ ]=]`、`--[[ ]]`）之间的每个字节都是字符串内容，但全文处理阶段无法区分 nginx 结构和内嵌脚本：长字符串里的连续空行被压缩、行尾空格被裁掉、内容被重新缩进，并且在每个以 `}` 开头的行后插入空行 —— 而 `}` 正是 Lua 表的收尾。现在 `*_by_lua_block` 的内容逐字节原样保留，长括号之外的普通 Lua 代码仍会规范化到块缩进。
@@ -82,7 +88,7 @@
 
 ```bash
 docker pull soulteary/nginx-formatter:latest
-docker pull soulteary/nginx-formatter:v2.5.0
+docker pull soulteary/nginx-formatter:v2.6.1
 ```
 
 ### Homebrew 安装
@@ -135,6 +141,7 @@ jobs:
         with:
           path: .
           mode: check
+          version: v2.6.1
 ```
 
 关于写入模式、缩进设置、版本固定及更多示例，请查看 [Nginx Format Action 中文文档](https://github.com/soulteary/nginx-format-action/blob/main/README_CN.md)。
