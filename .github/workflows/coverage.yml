@@ -1,4 +1,4 @@
-name: Codecov
+name: Coverage
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  CodeCov:
+  coverage:
     runs-on: ubuntu-latest
 
     env:
@@ -52,8 +52,3 @@ jobs:
       # being available to whoever remembers to invoke it.
       - name: Fuzz the parse/format round trip
         run: go test ./internal/nginx -run '^$' -fuzz=FuzzParseFormat -fuzztime=60s
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v7
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
