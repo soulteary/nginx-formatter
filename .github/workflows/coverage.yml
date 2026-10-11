@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - '**'
+    tags:
+      - '**'
   pull_request:
 
 permissions:
@@ -44,9 +46,8 @@ jobs:
           go test -race ./... -coverprofile=coverage.out -covermode=atomic
 
 
-      # The WebUI serves concurrent requests, so the race detector is the check
-      # that matters most here; it is a separate run because -race is
-      # incompatible with the atomic cover mode above.
+      # PR coverage reuses the GTR race/atomic profile; branch and tag runs
+      # retain their existing coverage, vet and fuzz checks.
         if: "!(github.event_name == 'pull_request')"
       - name: Remove stale generated report evidence
         if: always() && (github.event_name == 'pull_request')
