@@ -75,7 +75,7 @@
 >
 > - 使用原生 Go AST 的 Nginx 解析器重写了格式化引擎，替换了此前基于 `goja` / `beautifier.js` 的运行时。不再依赖 JavaScript 运行时，运行更快、体积更小。
 > - WebUI 切换到 [Fiber](https://github.com/gofiber/fiber) Web 框架。
-> - 升级到 Go 1.26，并采用根目录限定（root-scoped）的文件系统访问，目录遍历更安全。
+> - 升级到 Go 1.27.2，并采用根目录限定（root-scoped）的文件系统访问，目录遍历更安全。
 > - 多项问题修复：保留裸词中的反斜杠转义、容忍指令在 `}` 或文件结尾前缺失分号、更智能的 `return` 指令规范化处理。
 
 ## 程序下载
