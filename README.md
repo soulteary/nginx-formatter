@@ -12,6 +12,10 @@ Nginx configuration formatter ~10MB size, support CLI, WebUI, x86, ARM, Linux, m
 
 <img src=".github/preview.png">
 
+> **Unreleased**
+>
+> - Source builds now require Go 1.27.2 or later.
+
 > **What's new in [v2.6.1](https://github.com/soulteary/nginx-formatter/releases/tag/v2.6.1)**
 >
 > - No longer inserts a blank line between the final nested block and its enclosing closing brace. Existing blank lines and separation between sibling blocks are preserved.
@@ -75,7 +79,7 @@ Nginx configuration formatter ~10MB size, support CLI, WebUI, x86, ARM, Linux, m
 >
 > - Rewrote the formatting engine with a native Go AST-based nginx parser, replacing the previous `goja` / `beautifier.js` runtime. No JavaScript runtime dependency anymore, faster and lighter.
 > - Switched the WebUI to the [Fiber](https://github.com/gofiber/fiber) web framework.
-> - Upgraded to Go 1.27.2 with root-scoped filesystem access for safer directory traversal.
+> - Upgraded to Go 1.26 with root-scoped filesystem access for safer directory traversal.
 > - Various bug fixes: preserve backslash escapes in bare words, tolerate directives missing a trailing semicolon before `}` or EOF, and smarter `return` directive normalization.
 
 ## Download

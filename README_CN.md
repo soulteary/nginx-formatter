@@ -12,6 +12,10 @@
 
 <img src=".github/preview.png">
 
+> **未发布更新**
+>
+> - 从源码构建现在要求 Go 1.27.2 或更新版本。
+
 > **[v2.6.1](https://github.com/soulteary/nginx-formatter/releases/tag/v2.6.1) 更新说明**
 >
 > - 不再在最后一个嵌套块与其外层块的收尾大括号之间插入空行。原有空行及同级块之间的间隔仍会保留。
@@ -75,7 +79,7 @@
 >
 > - 使用原生 Go AST 的 Nginx 解析器重写了格式化引擎，替换了此前基于 `goja` / `beautifier.js` 的运行时。不再依赖 JavaScript 运行时，运行更快、体积更小。
 > - WebUI 切换到 [Fiber](https://github.com/gofiber/fiber) Web 框架。
-> - 升级到 Go 1.27.2，并采用根目录限定（root-scoped）的文件系统访问，目录遍历更安全。
+> - 升级到 Go 1.26，并采用根目录限定（root-scoped）的文件系统访问，目录遍历更安全。
 > - 多项问题修复：保留裸词中的反斜杠转义、容忍指令在 `}` 或文件结尾前缺失分号、更智能的 `return` 指令规范化处理。
 
 ## 程序下载
