@@ -14,7 +14,7 @@
 
 > **未发布更新**
 >
-> - 从源码构建现在要求 Go 1.27.2 或更新版本。
+> - 从源码构建现在要求 Go 1.27.3 或更新版本。
 
 > **[v2.6.1](https://github.com/soulteary/nginx-formatter/releases/tag/v2.6.1) 更新说明**
 >

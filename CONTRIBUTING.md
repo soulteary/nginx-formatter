@@ -21,7 +21,7 @@ This project and everyone participating in it is governed by our [Code of Conduc
 
 ### Prerequisites
 
-- [Go 1.27.2+](https://go.dev/dl/) (the required version is pinned in [`go.mod`](go.mod))
+- [Go 1.27.3+](https://go.dev/dl/) (the required version is pinned in [`go.mod`](go.mod))
 - Git
 - Optional: Docker, if you want to test the container images
 

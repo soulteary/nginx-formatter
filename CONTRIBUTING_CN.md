@@ -21,7 +21,7 @@
 
 ### 依赖要求
 
-- [Go 1.27.2+](https://go.dev/dl/)（所需版本已在 [`go.mod`](go.mod) 中固定）
+- [Go 1.27.3+](https://go.dev/dl/)（所需版本已在 [`go.mod`](go.mod) 中固定）
 - Git
 - 可选：Docker，如果你需要测试容器镜像
 
