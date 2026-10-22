@@ -14,7 +14,7 @@ Nginx configuration formatter ~10MB size, support CLI, WebUI, x86, ARM, Linux, m
 
 > **Unreleased**
 >
-> - Source builds now require Go 1.27.2 or later.
+> - Source builds now require Go 1.27.3 or later.
 
 > **What's new in [v2.6.1](https://github.com/soulteary/nginx-formatter/releases/tag/v2.6.1)**
 >
